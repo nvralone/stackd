@@ -395,6 +395,13 @@ class _BillEditorState extends State<BillEditor> {
       ..paymentCount = b.kind == 'recurring' ? int.tryParse(count.text.trim()) : null;
     if (b.kind == 'one_time') b.frequency = 'once';
     final isNew = widget.existing == null;
+    // A new recurring bill dated in the past would show every missed date as overdue.
+    // Treat past dates as already handled and start from the next upcoming one.
+    final rolled = isNew && b.kind == 'recurring' ? rollForward(b.firstDue, b.frequency, today()) : null;
+    if (rolled != null && rolled != b.firstDue) {
+      b.firstDue = rolled;
+      context.toast('Starts ${prettyDate(rolled)} (earlier dates count as already paid).');
+    }
     if (isNew && b.isDebt && recordStart && startAccount != null && b.principalCents != null) {
       app.record([
         b.kind == 'debt_lent'

@@ -17,6 +17,10 @@ class BillOccurrence {
   bool get open => status != OccStatus.paid && status != OccStatus.skipped;
 }
 
+/// First due date on or after [from] for a schedule anchored at [first] (unchanged if already upcoming).
+DateTime rollForward(DateTime first, String frequency, DateTime from) =>
+    first.isBefore(from) ? (nextOccurrence(first, frequency, from) ?? first) : first;
+
 /// Total the agreement asks for: principal + fees for debts, otherwise amount * count (null = open-ended).
 int? totalOwed(Bill b) {
   if (b.isDebt && b.principalCents != null) return b.principalCents! + b.feeCents;

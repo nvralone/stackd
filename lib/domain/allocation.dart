@@ -1,6 +1,7 @@
 // Allocation proposals for paychecks and extra money. Pure: nothing is committed here.
 import '../core/money.dart';
 import 'finance.dart';
+import 'plan.dart';
 
 enum TargetKind { goal, category, bills, unallocated }
 
@@ -52,11 +53,15 @@ Proposal suggestPaycheck(FinanceData f, int amount) {
   return Proposal(amount, lines);
 }
 
-/// Extra money: bills shortfall, overspent categories, then half of the rest to goals by remaining need.
+/// Extra money auto-split. Spreads the WHOLE amount:
+/// 1. covers a real bills shortfall (at most half the money),
+/// 2. covers non-essential categories that are already over budget,
+/// 3. splits everything left across your goals and budget categories in the same proportions as
+///    your weekly plan (goal targets + category limits). Every line can be edited or removed.
 Proposal suggestExtra(FinanceData f, int amount) {
   final lines = <AllocationLine>[];
   var left = amount;
-  final bills = billShortfall(f).clamp(0, left);
+  final bills = billShortfall(f).clamp(0, amount ~/ 2);
   if (bills > 0) {
     lines.add(AllocationLine(TargetKind.bills, null, 'Keep for upcoming bills', bills));
     left -= bills;
@@ -68,18 +73,37 @@ Proposal suggestExtra(FinanceData f, int amount) {
       left -= cover;
     }
   }
-  final open = f.goalStatuses.where((g) => !g.complete).toList();
-  if (open.isNotEmpty && left > 0) {
-    final toGoals = left ~/ 2;
-    final parts = splitByWeights(toGoals, [for (final g in open) g.remaining]);
-    for (var i = 0; i < open.length; i++) {
-      final p = parts[i].clamp(0, open[i].remaining);
-      if (p > 0) {
-        lines.add(AllocationLine(TargetKind.goal, open[i].goal.id, open[i].goal.name, p));
-        left -= p;
+  if (left <= 0) return Proposal(amount, lines);
+
+  // Targets weighted by the weekly plan; goals with no target date still get a share by remaining need.
+  final plan = buildWeeklyPlan(f);
+  final targets = <(TargetKind, String, String, int)>[];
+  for (final l in plan.lines) {
+    if (l.id == null || l.weekly <= 0) continue;
+    if (l.kind == PlanKind.goal) targets.add((TargetKind.goal, l.id!, l.name, l.weekly));
+    if (l.kind == PlanKind.spending || l.kind == PlanKind.essential) targets.add((TargetKind.category, l.id!, l.name, l.weekly));
+  }
+  final planned = {for (final t in targets) t.$2};
+  for (final g in f.goalStatuses.where((g) => !g.complete && !planned.contains(g.goal.id))) {
+    targets.add((TargetKind.goal, g.goal.id, g.goal.name, (g.remaining ~/ 52).clamp(1, 1 << 40)));
+  }
+  if (targets.isEmpty) {
+    lines.add(AllocationLine(TargetKind.unallocated, null, 'Unallocated', left));
+    return Proposal(amount, lines);
+  }
+  final parts = splitByWeights(left, [for (final t in targets) t.$4]);
+  var rest = 0;
+  for (var i = 0; i < targets.length; i++) {
+    var p = parts[i];
+    if (targets[i].$1 == TargetKind.goal) {
+      final g = f.goalStatuses.firstWhere((g) => g.goal.id == targets[i].$2);
+      if (p > g.remaining) {
+        rest += p - g.remaining; // never overfill a goal
+        p = g.remaining;
       }
     }
+    if (p > 0) lines.add(AllocationLine(targets[i].$1, targets[i].$2, targets[i].$3, p));
   }
-  if (left > 0) lines.add(AllocationLine(TargetKind.unallocated, null, 'Unallocated', left));
+  if (rest > 0) lines.add(AllocationLine(TargetKind.unallocated, null, 'Unallocated', rest));
   return Proposal(amount, lines);
 }
