@@ -8,6 +8,7 @@ import '../../domain/finance.dart';
 import '../../domain/forecast.dart';
 import '../app.dart';
 import '../common.dart';
+import '../sheets/allocation_sheet.dart';
 import '../sheets/entry_sheet.dart';
 import '../theme.dart';
 import 'activity.dart';
@@ -155,6 +156,14 @@ class CategoryCard extends StatelessWidget {
           ].join(' · '),
           style: context.tt.labelSmall?.copyWith(color: context.cs.onSurfaceVariant),
         ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => openQuickAdd(context, categoryId: c.id),
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+            label: Text(c.essential ? 'Paid / spent' : 'I spent'),
+          ),
+        ),
       ]),
     );
   }
@@ -182,10 +191,37 @@ class CategoryDetail extends StatelessWidget {
     final c = d.category(id);
     if (c == null) return const Scaffold(body: Empty('Category not found'));
     final events = d.ledger.active.where((e) => e.categoryId == id).toList()..sort((a, b) => b.occurredOn.compareTo(a.occurredOn));
+    final boosts = d.budgetAllocations.where((a) => a.categoryId == id).toList()..sort((a, b) => b.periodStart.compareTo(a.periodStart));
     return Scaffold(
       appBar: AppBar(title: Text(c.name)),
       body: PageBody(children: [
         CategoryCard(d.categoryStatus(c)),
+        if (boosts.isNotEmpty) ...[
+          const Section('Extra budget added'),
+          Text('Money from an Extra Money / paycheck split added to this category. Remove it or move it elsewhere.', style: context.tt.bodySmall),
+          for (final a in boosts)
+            Card(
+              margin: const EdgeInsets.only(top: 6),
+              child: ListTile(
+                leading: const Icon(Icons.add_card_rounded),
+                title: Text('+${m(a.amountCents)} for the ${c.period == 'monthly' ? 'month' : 'week'} of ${prettyDate(a.periodStart)}'),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (a.groupId != null)
+                    IconButton(tooltip: 'Edit split', icon: const Icon(Icons.call_split_rounded), onPressed: () => openEditSplit(context, a.groupId!)),
+                  IconButton(
+                    tooltip: 'Remove',
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    onPressed: () async {
+                      final app = context.appRead;
+                      if (await confirm(context, 'Remove this +${m(a.amountCents)}?', 'Your ${c.name} budget goes back down. No money moves.', ok: 'Remove')) {
+                        app.removeBoost(a);
+                      }
+                    },
+                  ),
+                ]),
+              ),
+            ),
+        ],
         const Section('History'),
         if (events.isEmpty) const Empty('No transactions in this category yet.'),
         for (final e in events.take(300)) EventTile(e),

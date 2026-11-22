@@ -553,7 +553,8 @@ class _TripDetailState extends State<TripDetail> {
           Row(children: [
             Expanded(child: FilledButton.icon(onPressed: () => sheet(context, MoveMoney(goal: goal, deposit: true)), icon: const Icon(Icons.savings), label: const Text('Add savings'))),
             const SizedBox(width: 8),
-            Expanded(child: OutlinedButton.icon(onPressed: () => _open(context, goal.id), icon: const Icon(Icons.open_in_new), label: const Text('Vault'))),
+            Expanded(child: OutlinedButton.icon(onPressed: saved <= 0 ? null : () => sheet(context, MoveMoney(goal: goal, deposit: false)), icon: const Icon(Icons.remove), label: const Text('Take out'))),
+            IconButton(tooltip: 'Open vault', onPressed: () => _open(context, goal.id), icon: const Icon(Icons.open_in_new)),
           ])
         else
           OutlinedButton.icon(

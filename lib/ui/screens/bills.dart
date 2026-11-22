@@ -9,6 +9,7 @@ import '../../domain/bills.dart';
 import '../app.dart';
 import '../common.dart';
 import '../theme.dart';
+import 'activity.dart';
 import 'home.dart';
 
 Color occColor(OccStatus s) => switch (s) {
@@ -114,6 +115,29 @@ Future<void> moveBillToBudget(BuildContext context, Bill b, {bool popAfter = fal
   if (context.mounted) context.toast('Moved to Budget.');
 }
 
+/// What "Reserved for bills" is holding money for, with quick paid / skip / move actions.
+class ReservedSheet extends StatelessWidget {
+  const ReservedSheet({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final d = context.app.data;
+    final list = d.upcomingBills(days: d.daysUntilHorizon).where((o) => !o.bill.incoming).toList();
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Reserved for bills: ${m(d.reservedForBills)}', style: context.tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        Text('Money set aside for these until ${d.nextPayday != null ? 'payday ${prettyDate(d.nextPayday!)}' : 'the next 2 weeks'}. '
+            'Tap one to mark it paid, skip it, move its date, or edit/delete the bill. That frees the money right away.',
+            style: context.tt.bodySmall),
+        const SizedBox(height: 8),
+        if (list.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('Nothing reserved. All clear.')),
+        for (final o in list) OccurrenceTile(o),
+      ]),
+    );
+  }
+}
+
 class OccurrenceTile extends StatelessWidget {
   final BillOccurrence o;
   const OccurrenceTile(this.o, {super.key});
@@ -179,6 +203,7 @@ class BillDetail extends StatelessWidget {
         if (payments.isEmpty) const Empty('No payments recorded yet.'),
         for (final e in payments)
           ListTile(
+            onTap: () => sheet(context, EventDetail(e)),
             title: Text('${kindLabel(e.kind)}${e.kind != 'reversal' ? ' · payment ${(e.billOccurrence ?? 0) + 1}' : ''}',
                 style: TextStyle(decoration: d.ledger.isReversed(e.id) ? TextDecoration.lineThrough : null)),
             subtitle: Text(prettyDate(e.occurredOn)),

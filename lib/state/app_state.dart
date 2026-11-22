@@ -222,6 +222,27 @@ class AppState extends ChangeNotifier {
     _changed();
   }
 
+  LedgerEvent _reversalOf(LedgerEvent e, String note) =>
+      event(kind: 'reversal', amountCents: e.amountCents.abs(), on: e.occurredOn, note: note).copyWithReverses(e.id);
+
+  /// Changes where a split's money went: reverses the group's vault deposits, removes its budget
+  /// boosts, and records the new ones, all in one step. The income itself is untouched.
+  void replaceSplit(String groupId, List<LedgerEvent> deposits, List<BudgetAllocation> allocs) {
+    final oldDeposits = data.ledger.active.where((e) => e.groupId == groupId && e.kind == 'goal_deposit').toList();
+    final oldAllocs = data.budgetAllocations.where((a) => a.groupId == groupId).toList();
+    record([for (final e in oldDeposits) _reversalOf(e, 'Split edited'), ...deposits],
+        also: [for (final a in oldAllocs) a..deleted = true, ...allocs]);
+  }
+
+  /// Brings back a reversed entry as a fresh copy (the reversal stays in history).
+  void restore(LedgerEvent reversed) {
+    if (!data.ledger.isReversed(reversed.id)) return;
+    record([reversed.replacement(newId: newId(), note: reversed.note)]);
+  }
+
+  /// Removes one category boost (extra budget) without touching anything else.
+  void removeBoost(BudgetAllocation a) => deleteItems([a]);
+
   // ---------------------------------------------------------------- setup helpers
   void skipFirstSync() {
     db.setKv('first_sync_done', '1');

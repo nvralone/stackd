@@ -10,6 +10,25 @@ import '../../domain/allocation.dart';
 import '../common.dart';
 import '../theme.dart';
 
+/// Opens the split editor for money that was already split (Extra Money / paycheck).
+Future<void> openEditSplit(BuildContext context, String groupId) async {
+  final d = context.appRead.data;
+  final source = d.ledger.active.where((e) => e.groupId == groupId && (e.kind == 'income' || e.kind == 'refund')).toList();
+  final deposits = d.ledger.active.where((e) => e.groupId == groupId && e.kind == 'goal_deposit').toList();
+  final allocs = d.budgetAllocations.where((a) => a.groupId == groupId).toList();
+  final placed = deposits.fold<int>(0, (s, e) => s + e.amountCents) + allocs.fold<int>(0, (s, a) => s + a.amountCents);
+  final amount = source.isEmpty ? placed : source.fold<int>(0, (s, e) => s + e.amountCents);
+  final current = <AllocationLine>[
+    for (final e in deposits) AllocationLine(TargetKind.goal, e.goalId, d.goal(e.goalId)?.name ?? 'Deleted vault (will be removed)', e.amountCents),
+    for (final a in allocs)
+      AllocationLine(TargetKind.category, a.categoryId, d.category(a.categoryId)?.name ?? 'Deleted category (will be removed)', a.amountCents),
+  ];
+  final date = source.firstOrNull?.occurredOn ?? deposits.firstOrNull?.occurredOn ?? today();
+  await sheet(context, AllocationSheet(
+      title: 'Edit split of ${m(amount)}', amount: amount, groupId: groupId, date: date,
+      suggested: suggestExtra(d, amount), current: current));
+}
+
 class AllocationSheet extends StatefulWidget {
   final String title;
   final int amount;
@@ -17,8 +36,10 @@ class AllocationSheet extends StatefulWidget {
   final DateTime date;
   final Proposal suggested;
   final bool allowModes;
+  /// Where the money currently is (editing an existing split). Null for a new split.
+  final List<AllocationLine>? current;
   const AllocationSheet({super.key, required this.title, required this.amount, required this.groupId, required this.date,
-      required this.suggested, this.allowModes = true});
+      required this.suggested, this.allowModes = true, this.current});
   @override
   State<AllocationSheet> createState() => _AllocationSheetState();
 }
@@ -26,8 +47,9 @@ class AllocationSheet extends StatefulWidget {
 enum Mode { suggested, manual, single }
 
 class _AllocationSheetState extends State<AllocationSheet> {
-  Mode mode = Mode.suggested;
-  late List<AllocationLine> lines = [for (final l in widget.suggested.lines) l.copy()];
+  late Mode mode = widget.current != null ? Mode.manual : Mode.suggested;
+  late List<AllocationLine> lines = [for (final l in widget.current ?? widget.suggested.lines) l.copy()];
+  bool get editing => widget.current != null;
   final controllers = <AllocationLine, TextEditingController>{};
   String? singleTarget; // 'goal:<id>' | 'cat:<id>' | 'none'
   bool done = false;
@@ -52,7 +74,7 @@ class _AllocationSheetState extends State<AllocationSheet> {
         mode = m;
         controllers.clear();
         if (m == Mode.suggested) lines = [for (final l in widget.suggested.lines) l.copy()];
-        if (m == Mode.manual) lines = [];
+        if (m == Mode.manual) lines = [for (final l in widget.current ?? const <AllocationLine>[]) l.copy()];
       });
 
   Future<void> addLine() async {
@@ -60,6 +82,7 @@ class _AllocationSheetState extends State<AllocationSheet> {
     final pick = await showDialog<String>(
       context: context,
       builder: (c) => SimpleDialog(title: const Text('Add destination'), children: [
+        SimpleDialogOption(onPressed: () => Navigator.pop(c, 'bills:'), child: const Text('Save for upcoming bills')),
         for (final g in data.goals.where((g) => !g.archived))
           SimpleDialogOption(onPressed: () => Navigator.pop(c, 'goal:${g.id}'), child: Text('Vault: ${g.name}')),
         for (final cat in data.categories.where((c) => !c.archived))
@@ -68,6 +91,9 @@ class _AllocationSheetState extends State<AllocationSheet> {
     );
     if (pick == null) return;
     final id = pick.substring(pick.indexOf(':') + 1);
+    if (pick == 'bills:') {
+      return setState(() => lines.add(AllocationLine(TargetKind.bills, null, 'Keep for upcoming bills', 0)));
+    }
     setState(() => lines.add(pick.startsWith('goal:')
         ? AllocationLine(TargetKind.goal, id, data.goal(id)!.name, 0)
         : AllocationLine(TargetKind.category, id, data.category(id)!.name, 0)));
@@ -77,9 +103,10 @@ class _AllocationSheetState extends State<AllocationSheet> {
     final app = context.appRead;
     if (leftover < 0) return context.toast('You allocated more than ${m(widget.amount)}.');
     final eff = effective;
-    final goalLines = eff.where((l) => l.kind == TargetKind.goal && l.cents > 0).toList();
-    final catLines = eff.where((l) => l.kind == TargetKind.category && l.cents > 0).toList();
-    if (goalLines.isEmpty && catLines.isEmpty) {
+    // lines pointing at a deleted vault/category are dropped (their money returns to unallocated)
+    final goalLines = eff.where((l) => l.kind == TargetKind.goal && l.cents > 0 && app.data.goal(l.targetId) != null).toList();
+    final catLines = eff.where((l) => l.kind == TargetKind.category && l.cents > 0 && app.data.category(l.targetId) != null).toList();
+    if (goalLines.isEmpty && catLines.isEmpty && !editing) {
       Navigator.pop(context);
       return context.toast('Kept as unallocated money.');
     }
@@ -98,10 +125,14 @@ class _AllocationSheetState extends State<AllocationSheet> {
               amountCents: l.cents, groupId: widget.groupId);
         }()
     ];
-    app.record(events, also: allocs, trigger: events.isEmpty ? null : GoalMoved(events.first));
+    if (editing) {
+      app.replaceSplit(widget.groupId, events, allocs);
+    } else {
+      app.record(events, also: allocs, trigger: events.isEmpty ? null : GoalMoved(events.first));
+    }
     if (!mounted) return;
     Navigator.pop(context);
-    context.toast('Split saved. Undo it anytime from Activity.');
+    context.toast(editing ? 'Split updated.' : 'Split saved. Change it anytime from Activity.');
   }
 
   @override
@@ -169,8 +200,14 @@ class _AllocationSheetState extends State<AllocationSheet> {
           const Expanded(child: Text('Unallocated / spending money')),
           Money(leftover, color: leftover < 0 ? Accents.danger : null),
         ]),
-        if (eff.any((l) => l.kind == TargetKind.bills))
-          Text('"Keep for bills" stays in your accounts and is reserved for upcoming bills automatically.', style: context.tt.bodySmall),
+        if (eff.any((l) => l.kind == TargetKind.bills)) ...[
+          Text('"Keep for bills" stays in your accounts and covers these bills before payday:', style: context.tt.bodySmall),
+          for (final o in data.upcomingBills(days: data.daysUntilHorizon).where((o) => !o.bill.incoming))
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 2),
+              child: Text('• ${o.bill.name}: ${m(o.remainingCents)} (${prettyDate(o.due)})', style: context.tt.bodySmall),
+            ),
+        ],
         const Section('Preview'),
         for (final l in eff.where((l) => l.cents > 0 && (l.kind == TargetKind.goal || l.kind == TargetKind.category)))
           Padding(

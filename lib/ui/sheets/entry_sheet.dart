@@ -12,19 +12,21 @@ import '../common.dart';
 import '../theme.dart';
 import 'allocation_sheet.dart';
 
-Future<void> openQuickAdd(BuildContext context, {String kind = 'expense', LedgerEvent? editing}) async {
+Future<void> openQuickAdd(BuildContext context, {String kind = 'expense', LedgerEvent? editing, String? categoryId, String? tripId, int? cents, String? note}) async {
   final app = context.appRead;
   if (app.data.accounts.isEmpty) {
     context.toast('Add a money account first (Settings > Accounts).');
     return;
   }
-  await sheet(context, EntrySheet(kind: editing?.kind ?? kind, editing: editing));
+  await sheet(context, EntrySheet(kind: editing?.kind ?? kind, editing: editing, categoryId: categoryId, tripId: tripId, cents: cents, note: note));
 }
 
 class EntrySheet extends StatefulWidget {
   final String kind;
   final LedgerEvent? editing;
-  const EntrySheet({super.key, required this.kind, this.editing});
+  final String? categoryId, tripId, note;
+  final int? cents;
+  const EntrySheet({super.key, required this.kind, this.editing, this.categoryId, this.tripId, this.cents, this.note});
   @override
   State<EntrySheet> createState() => _EntrySheetState();
 }
@@ -34,13 +36,13 @@ class _EntrySheetState extends State<EntrySheet> {
   late String kind = widget.kind;
   // Generated once per sheet: a double tap on Save produces the same id and is ignored as a duplicate.
   final String eventId = newId();
-  late final amount = TextEditingController(text: widget.editing == null ? '' : centsToInput(widget.editing!.amountCents.abs()));
-  late final note = TextEditingController(text: widget.editing?.note ?? '');
+  late final amount = TextEditingController(text: widget.editing != null ? centsToInput(widget.editing!.amountCents.abs()) : (widget.cents != null ? centsToInput(widget.cents!) : ''));
+  late final note = TextEditingController(text: widget.editing?.note ?? widget.note ?? '');
   late String? account = widget.editing?.accountId ?? _defaultAccount();
   late String? toAccount = widget.editing?.toAccountId;
-  late String? category = widget.editing?.categoryId;
+  late String? category = widget.editing?.categoryId ?? widget.categoryId;
   late String source = widget.editing?.incomeSource ?? 'paycheck';
-  late String? trip = widget.editing?.tripId;
+  late String? trip = widget.editing?.tripId ?? widget.tripId;
   late DateTime date = widget.editing?.occurredOn ?? today();
   bool adjustUp = true;
   bool saving = false;

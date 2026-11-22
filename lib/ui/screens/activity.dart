@@ -6,6 +6,7 @@ import '../../data/models.dart';
 import '../../domain/finance.dart';
 import '../app.dart';
 import '../common.dart';
+import '../sheets/allocation_sheet.dart';
 import '../sheets/entry_sheet.dart';
 import '../theme.dart';
 
@@ -169,6 +170,8 @@ class EventDetail extends StatelessWidget {
     final d = app.data;
     final reversed = d.ledger.isReversed(e.id);
     final group = e.groupId == null ? const <LedgerEvent>[] : d.ledger.active.where((x) => x.groupId == e.groupId).toList();
+    final boosts = e.groupId == null ? const <BudgetAllocation>[] : d.budgetAllocations.where((a) => a.groupId == e.groupId).toList();
+    final hasSplit = e.groupId != null && e.kind != 'reversal' && (boosts.isNotEmpty || group.any((x) => x.kind == 'goal_deposit'));
     final editable = const {'expense', 'income', 'refund', 'transfer', 'adjustment'}.contains(e.kind) && !reversed;
     final reversedBy = d.ledger.all.where((x) => x.reversesId == e.id).firstOrNull;
     final original = e.replacesId == null ? null : d.ledger.all.where((x) => x.id == e.replacesId).firstOrNull;
@@ -206,34 +209,62 @@ class EventDetail extends StatelessWidget {
             icon: const Icon(Icons.edit_rounded),
             label: const Text('Edit'),
           ),
+        if (hasSplit) ...[
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: () {
+              final nav = Navigator.of(context);
+              nav.pop();
+              openEditSplit(nav.context, e.groupId!);
+            },
+            icon: const Icon(Icons.call_split_rounded),
+            label: const Text('Edit split (change where the money went)'),
+          ),
+        ],
         if (!reversed && e.kind != 'reversal') ...[
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () async {
-              if (!await confirm(context, 'Reverse this entry?',
-                  'Balances will no longer include it. The original stays in your history for auditing.', ok: 'Reverse')) {
-                return;
+              final parts = group.length + boosts.length;
+              if (parts > 1) {
+                // Part of an Extra Money / paycheck entry: ask how much to undo.
+                final choice = await showDialog<String>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: const Text('Undo what?'),
+                    content: Text('This is part of an entry with $parts pieces (the money plus where it was split).'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.pop(c, 'one'), child: const Text('Just this piece')),
+                      FilledButton(onPressed: () => Navigator.pop(c, 'all'), child: const Text('Undo whole entry')),
+                    ],
+                  ),
+                );
+                if (choice == null) return;
+                choice == 'all' ? app.reverseGroup(e.groupId!) : app.reverse(e);
+              } else {
+                if (!await confirm(context, 'Reverse this entry?',
+                    'Balances will no longer include it. The original stays in your history, and you can restore it.', ok: 'Reverse')) {
+                  return;
+                }
+                app.reverse(e);
               }
-              app.reverse(e);
               if (context.mounted) Navigator.pop(context);
             },
             icon: const Icon(Icons.undo_rounded),
-            label: const Text('Reverse (safe delete)'),
+            label: const Text('Undo / reverse'),
           ),
         ],
-        if (group.length > 1 && !reversed) ...[
+        if (reversed && e.kind != 'reversal') ...[
           const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: () async {
-              if (!await confirm(context, 'Undo all ${group.length} linked entries?',
-                  'This reverses the income and its split allocations together.', ok: 'Undo all')) {
-                return;
-              }
-              app.reverseGroup(e.groupId!);
-              if (context.mounted) Navigator.pop(context);
+          FilledButton.tonalIcon(
+            onPressed: () {
+              app.restore(e);
+              Navigator.pop(context);
+              context.toast('Restored.');
             },
-            icon: const Icon(Icons.layers_clear_rounded),
-            label: Text('Undo linked group (${group.length})'),
+            icon: const Icon(Icons.restore_rounded),
+            label: const Text('Restore (undo the reverse)'),
           ),
         ],
       ]),

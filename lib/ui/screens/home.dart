@@ -5,6 +5,7 @@ import '../../core/dates.dart';
 import '../../domain/bills.dart';
 import '../app.dart';
 import '../common.dart';
+import '../sheets/afford_sheet.dart';
 import '../sheets/entry_sheet.dart';
 import '../theme.dart';
 import 'bills.dart';
@@ -85,10 +86,10 @@ class HomeScreen extends StatelessWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: grid, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 92),
+                  crossAxisCount: grid, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 120),
               children: [
                 Stat('Total money', d.totalMoney, icon: Icons.account_balance_wallet_rounded),
-                Stat('Reserved for bills', d.reservedForBills, icon: Icons.event_note_rounded, color: Accents.warn, onTap: () => Shell.go(context, 4)),
+                Stat('Reserved for bills', d.reservedForBills, icon: Icons.event_note_rounded, color: Accents.warn, hint: 'Tap to see / change', onTap: () => sheet(context, const ReservedSheet())),
                 Stat('Saved in vaults', d.totalSaved, icon: Icons.savings_rounded, color: Accents.savings, onTap: () => Shell.go(context, 3)),
                 Stat('Vacation savings', d.vacationSaved, icon: Icons.flight_takeoff_rounded, color: Accents.vacation, onTap: () => Shell.go(context, 3)),
               ],
@@ -106,6 +107,10 @@ class HomeScreen extends StatelessWidget {
           if (show('actions')) ...[
             const Section('Quick actions'),
             Wrap(spacing: 8, runSpacing: 8, children: [
+              ActionChip(
+                  avatar: const Icon(Icons.shopping_cart_checkout_rounded, color: Accents.savings),
+                  label: const Text('Can I afford it?'),
+                  onPressed: () => sheet(context, const AffordSheet())),
               ActionChip(avatar: const Icon(Icons.remove_circle_outline), label: const Text('Expense'), onPressed: () => openQuickAdd(context)),
               ActionChip(avatar: const Icon(Icons.payments_outlined), label: const Text('Payday'), onPressed: () => openQuickAdd(context, kind: 'income')),
               ActionChip(

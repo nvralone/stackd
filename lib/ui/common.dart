@@ -84,7 +84,7 @@ class Stat extends StatelessWidget {
           ]),
           const SizedBox(height: 6),
           FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Money(cents, size: 20, color: color)),
-          if (hint != null) Text(hint!, style: context.tt.bodySmall?.copyWith(color: context.cs.onSurfaceVariant)),
+          if (hint != null) Text(hint!, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.tt.bodySmall?.copyWith(color: context.cs.onSurfaceVariant)),
         ]),
       );
 }
