@@ -41,8 +41,13 @@ class SyncService {
     state = SyncState.syncing;
     onChanged();
     try {
+      // Pull first so a new device sees existing data before uploading anything,
+      // then drop never-synced default categories that duplicate synced ones.
+      await pull();
+      db.dedupeNewCategories();
       await push();
       await pull();
+      db.setKv('first_sync_done', '1');
       state = SyncState.idle;
       lastError = null;
       lastSynced = DateTime.now();

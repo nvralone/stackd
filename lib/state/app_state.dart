@@ -72,6 +72,8 @@ class AppState extends ChangeNotifier {
   Prefs get prefs => data.prefs;
   bool get signedIn => sync?.uid != null;
   bool get needsAuth => cloudConfigured && !signedIn && !localOnlyChosen;
+  /// Signed in on this device but the first download hasn't finished: don't start setup yet.
+  bool get firstSyncPending => signedIn && db.getKv('first_sync_done') == null && sync?.state != SyncState.error;
   int get pendingSync => db.dirtyCount;
 
   void reload() {
@@ -213,7 +215,13 @@ class AppState extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------- setup helpers
+  void skipFirstSync() {
+    db.setKv('first_sync_done', '1');
+    notifyListeners();
+  }
+
   void ensureDefaults() {
+    if (firstSyncPending) return; // wait: the account may already have categories
     if (db.all('categories').isEmpty) {
       db.transaction(() {
         for (final c in defaultCategories()) {
@@ -316,7 +324,9 @@ class AppState extends ChangeNotifier {
     final local = db.all('profiles').where((r) => r['id'] == 'local').firstOrNull;
     if (local != null) {
       db.db.execute("delete from rows where tbl = 'profiles' and id = 'local'");
-      db.put(Prefs.fromRow(local)..id = uid);
+      // A device that was already set up keeps its settings (fresh timestamp wins the merge).
+      // A brand-new device drops its blank profile and takes the account's synced one.
+      if (Prefs.fromRow(local).onboarded) db.put(Prefs.fromRow(local)..id = uid);
     }
   }
 

@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../clover/clover_widget.dart';
+import '../clover/moods.dart';
 import '../state/app_state.dart';
 import 'common.dart';
 import 'screens/activity.dart';
@@ -42,9 +44,32 @@ class Gate extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.app;
     if (app.needsAuth) return const AuthScreen();
+    if (app.firstSyncPending) return const _SyncingScreen();
     if (!app.prefs.onboarded) return const OnboardingScreen();
     return const Shell();
   }
+}
+
+/// Shown while a newly signed-in device downloads the account's data.
+class _SyncingScreen extends StatelessWidget {
+  const _SyncingScreen();
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const CloverSprite(mood: CloverMood.thinking, size: 120),
+            const SizedBox(height: 16),
+            const Text('Grabbing your stuff from the cloud...', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            const SizedBox(width: 160, child: LinearProgressIndicator()),
+            const SizedBox(height: 24),
+            TextButton(
+              onPressed: () => context.appRead.skipFirstSync(),
+              child: const Text('Skip and continue'),
+            ),
+          ]),
+        ),
+      );
 }
 
 class Dest {

@@ -69,6 +69,31 @@ class LocalDb {
     return true;
   }
 
+  /// Removes local categories that were never uploaded and duplicate (by name) a category
+  /// that came from the server, as long as nothing references them. Prevents two devices
+  /// each creating their own set of default categories.
+  int dedupeNewCategories() {
+    final rows = db.select("select id, json, dirty from rows where tbl = 'categories'");
+    final synced = <String>{};
+    for (final r in rows) {
+      if (r['dirty'] == 0) synced.add(((jsonDecode(r['json'] as String) as Map)['name'] as String).toLowerCase());
+    }
+    var removed = 0;
+    for (final r in rows) {
+      if (r['dirty'] != 1) continue;
+      final j = jsonDecode(r['json'] as String) as Map;
+      if (j['updated_at'] != null) continue; // has been on the server: a real edit, keep
+      if (!synced.contains((j['name'] as String).toLowerCase())) continue;
+      final id = r['id'] as String;
+      final used = db.select("select 1 from rows where tbl in ('ledger_events','bills','budget_allocations') and json like ? limit 1",
+          ['%"$id"%']);
+      if (used.isNotEmpty) continue;
+      db.execute("delete from rows where tbl = 'categories' and id = ?", [id]);
+      removed++;
+    }
+    return removed;
+  }
+
   ({bool dirty, String clientUpdatedAt})? meta(String table, String id) {
     final r = db.select('select dirty, client_updated_at from rows where tbl = ? and id = ?', [table, id]);
     if (r.isEmpty) return null;
