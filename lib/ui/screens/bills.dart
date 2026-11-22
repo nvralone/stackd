@@ -149,7 +149,8 @@ class OccurrenceTile extends StatelessWidget {
           child: Text('${o.due.day}', style: TextStyle(fontWeight: FontWeight.w800, color: occColor(o.status))),
         ),
         title: Text(o.bill.name),
-        subtitle: Text('${occLabel(o)} · ${weekdayNames[o.due.weekday - 1]} ${prettyDate(o.due)}${o.paidCents > 0 ? ' · ${m(o.paidCents)} paid' : ''}'),
+        subtitle: Text('${occLabel(o)} · ${weekdayNames[o.due.weekday - 1]} ${prettyDate(o.due)}${o.paidCents > 0 ? ' · ${m(o.paidCents)} paid' : ''}'
+            '${o.setAside ? ' · money set aside ✓' : ''}${o.isLast ? ' · last one, cancel it!' : ''}'),
         trailing: Money(o.remainingCents, color: o.bill.incoming ? Accents.income : null),
       );
 }
@@ -269,6 +270,25 @@ class _PayBillState extends State<PayBill> {
             },
             child: Text(b.incoming ? 'Confirm received' : 'Confirm paid'),
           ),
+          if (!b.incoming) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: Icon(o.setAside ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded),
+              label: Text(o.setAside ? 'Money set aside (tap to undo)' : 'I have the money, not paid yet'),
+              onPressed: () {
+                final app = context.appRead;
+                final ex = app.data.overrides.where((x) => x.billId == b.id && x.occurrence == o.index).firstOrNull;
+                app.save((ex ?? BillOverride(id: newId(), billId: b.id, occurrence: o.index))..setAside = !o.setAside);
+                Navigator.pop(context);
+                context.toast(o.setAside ? 'Unmarked.' : 'Marked: money is ready. Tap "Confirm paid" when you actually pay.');
+              },
+            ),
+          ],
+          if (o.isLast)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('This is the last payment. Remember to cancel it before it renews!', style: TextStyle(color: Accents.warn, fontWeight: FontWeight.w700)),
+            ),
           const Divider(height: 28),
           OutlinedButton.icon(
             icon: const Icon(Icons.edit_calendar_rounded),
@@ -312,6 +332,21 @@ class _PayBillState extends State<PayBill> {
                   final nav = Navigator.of(context);
                   nav.pop();
                   moveBillToBudget(nav.context, b);
+                },
+              ),
+            if (b.kind == 'recurring' && !o.isLast)
+              TextButton.icon(
+                icon: const Icon(Icons.event_busy_rounded),
+                label: const Text('Make this the last payment'),
+                onPressed: () async {
+                  final app = context.appRead;
+                  final nav = Navigator.of(context);
+                  if (!await confirm(context, 'End ${b.name} after this one?',
+                      'Payments stop after ${prettyDate(o.due)}. You\'ll get a reminder to cancel it before then.', ok: 'End after this')) {
+                    return;
+                  }
+                  app.save(b..paymentCount = o.index + 1);
+                  nav.pop();
                 },
               ),
             DeleteButton(what: b.name, body: _billDeleteBody, toDelete: () => [b]),

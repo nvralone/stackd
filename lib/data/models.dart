@@ -140,15 +140,15 @@ class BillOverride extends Entity {
   final String billId;
   final int occurrence;
   DateTime? dueOn;
-  bool skipped;
-  BillOverride({required this.id, required this.billId, required this.occurrence, this.dueOn, this.skipped = false});
+  bool skipped, setAside;
+  BillOverride({required this.id, required this.billId, required this.occurrence, this.dueOn, this.skipped = false, this.setAside = false});
   @override
   String get table => 'bill_overrides';
   @override
-  DbRow toRow() => {'id': id, 'bill_id': billId, 'occurrence': occurrence, 'due_on': _d(dueOn), 'skipped': skipped, 'deleted': deleted};
+  DbRow toRow() => {'id': id, 'bill_id': billId, 'occurrence': occurrence, 'due_on': _d(dueOn), 'skipped': skipped, 'set_aside': setAside, 'deleted': deleted};
   factory BillOverride.fromRow(DbRow r) => BillOverride(
       id: r['id'] as String, billId: r['bill_id'] as String, occurrence: _i(r['occurrence'])!,
-      dueOn: _pd(r['due_on']), skipped: _b(r['skipped']))
+      dueOn: _pd(r['due_on']), skipped: _b(r['skipped']), setAside: _b(r['set_aside']))
     ..deleted = _b(r['deleted']);
 }
 

@@ -12,7 +12,9 @@ class BillOccurrence {
   final DateTime due;
   final int amountCents, paidCents;
   final OccStatus status;
-  const BillOccurrence(this.bill, this.index, this.due, this.amountCents, this.paidCents, this.status);
+  final bool setAside; // money is ready, bill not paid yet
+  const BillOccurrence(this.bill, this.index, this.due, this.amountCents, this.paidCents, this.status, {this.setAside = false});
+  bool get isLast => paymentCountOf(bill) != null && index == paymentCountOf(bill)! - 1 && bill.frequency != 'once';
   int get remainingCents => (amountCents - paidCents).clamp(0, amountCents);
   bool get open => status != OccStatus.paid && status != OccStatus.skipped;
 }
@@ -72,7 +74,7 @@ List<BillOccurrence> occurrences(Bill b, Ledger ledger, List<BillOverride> overr
     } else {
       st = OccStatus.upcoming;
     }
-    out.add(BillOccurrence(b, i, due, amt, paid, st));
+    out.add(BillOccurrence(b, i, due, amt, paid, st, setAside: ov[i]?.setAside ?? false));
     if (b.frequency == 'once') break;
   }
   return out;

@@ -7,6 +7,7 @@ import '../app.dart';
 import '../common.dart';
 import '../sheets/afford_sheet.dart';
 import '../sheets/entry_sheet.dart';
+import '../sheets/money_sheets.dart';
 import '../theme.dart';
 import 'bills.dart';
 import 'goals.dart';
@@ -17,6 +18,7 @@ const homeWidgets = {
   'available': 'Safe to spend',
   'stats': 'Money overview',
   'week': 'This week',
+  'budgets': 'Budgets this week',
   'actions': 'Quick actions',
   'bills': 'Upcoming bills',
   'goals': 'Savings progress',
@@ -104,9 +106,17 @@ class HomeScreen extends StatelessWidget {
                   hint: 'Last week ${m(d.lastWeekTotals.netSpent)}')),
             ]),
           ],
+          if (show('budgets')) ...[
+            Section('Budgets this week', trailing: TextButton(onPressed: () => Shell.go(context, 2), child: const Text('All'))),
+            const BudgetsCard(),
+          ],
           if (show('actions')) ...[
             const Section('Quick actions'),
             Wrap(spacing: 8, runSpacing: 8, children: [
+              ActionChip(
+                  avatar: const Icon(Icons.calculate_rounded),
+                  label: const Text('Count my money'),
+                  onPressed: () => sheet(context, const CountMoneySheet())),
               ActionChip(
                   avatar: const Icon(Icons.shopping_cart_checkout_rounded, color: Accents.savings),
                   label: const Text('Can I afford it?'),

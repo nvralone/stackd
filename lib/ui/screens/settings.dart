@@ -369,6 +369,14 @@ class _AccountEditorState extends State<AccountEditor> {
               },
               child: Text(a.archived ? 'Unarchive' : 'Archive (keeps history and balance)'),
             ),
+          if (!isNew)
+            DeleteButton(
+              what: a.name,
+              body: current == 0
+                  ? 'Removes this account. Its history stays in Activity.'
+                  : 'This account shows ${m(current)}. Deleting it removes that from your total money (transactions stay in history). If it was a duplicate, that is what you want.',
+              toDelete: () => [a],
+            ),
         ]),
       ),
     );

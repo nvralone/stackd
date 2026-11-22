@@ -10,6 +10,7 @@ import '../app.dart';
 import '../common.dart';
 import '../sheets/allocation_sheet.dart';
 import '../sheets/entry_sheet.dart';
+import '../sheets/money_sheets.dart';
 import '../theme.dart';
 import 'activity.dart';
 import 'forecast.dart';
@@ -156,14 +157,18 @@ class CategoryCard extends StatelessWidget {
           ].join(' · '),
           style: context.tt.labelSmall?.copyWith(color: context.cs.onSurfaceVariant),
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
+        Wrap(children: [
+          TextButton.icon(
             onPressed: () => openQuickAdd(context, categoryId: c.id),
             icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
             label: Text(c.essential ? 'Paid / spent' : 'I spent'),
           ),
-        ),
+          TextButton.icon(
+            onPressed: () => addToBudget(context, c),
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+            label: const Text('Add money'),
+          ),
+        ]),
       ]),
     );
   }

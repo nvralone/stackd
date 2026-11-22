@@ -129,6 +129,7 @@ create table public.bill_overrides (
   occurrence  integer not null check (occurrence >= 0),
   due_on      date,
   skipped     boolean not null default false,
+  set_aside   boolean not null default false, -- money is ready but the bill isn't paid yet
   deleted     boolean not null default false,
   client_updated_at timestamptz not null default now(),
   updated_at  timestamptz not null default now(),

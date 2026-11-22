@@ -44,8 +44,10 @@ List<PlannedReminder> planReminders(FinanceData f, {DateTime? nowLocal}) {
             '${o.bill.name}: ${formatCents(o.remainingCents)} was due ${prettyDate(o.due)}.'));
       }
     } else if (p.notif('bills')) {
-      out.add(PlannedReminder(at(addDays(o.due, -o.bill.reminderDays), 9), 'bill:${o.bill.id}:${o.index}', 'Bill coming up',
-          '${o.bill.name}: ${formatCents(o.remainingCents)} due ${prettyDate(o.due)}.'));
+      out.add(PlannedReminder(at(addDays(o.due, -o.bill.reminderDays), 9), 'bill:${o.bill.id}:${o.index}', o.isLast ? 'Last payment: cancel it' : 'Bill coming up',
+          o.isLast
+              ? '${o.bill.name}: last payment ${prettyDate(o.due)}. Cancel it before it renews.'
+              : '${o.bill.name}: ${formatCents(o.remainingCents)} due ${prettyDate(o.due)}${o.setAside ? ' (money set aside)' : ''}.'));
     }
   }
   if (p.notif('savings')) {
