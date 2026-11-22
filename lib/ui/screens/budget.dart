@@ -133,6 +133,7 @@ class CategoryCard extends StatelessWidget {
             Text(
               s.hasLimit
                   ? '${m(s.spent)} of ${m(s.budget)} ${c.period == 'monthly' ? 'this month' : 'this week'}'
+                      '${s.extra != 0 || s.rollover != 0 ? ' (${m(s.limit)} limit${s.extra != 0 ? ' + ${m(s.extra)} from extra money' : ''}${s.rollover != 0 ? ' ${formatCents(s.rollover, showPlus: true)} rollover' : ''})' : ''}'
                   : '${m(s.spent)} ${c.period == 'monthly' ? 'this month' : 'this week'} · no limit',
               style: context.tt.bodySmall,
             ),

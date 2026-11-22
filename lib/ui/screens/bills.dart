@@ -267,6 +267,30 @@ class _PayBillState extends State<PayBill> {
             },
             child: const Text('Skip this payment'),
           ),
+          const Divider(height: 28),
+          Text('Manage this bill', style: context.tt.labelLarge),
+          Wrap(spacing: 4, children: [
+            TextButton.icon(
+              icon: const Icon(Icons.edit_rounded),
+              label: const Text('Edit'),
+              onPressed: () {
+                final nav = Navigator.of(context);
+                nav.pop();
+                sheet(nav.context, BillEditor(existing: b));
+              },
+            ),
+            if (!b.isDebt)
+              TextButton.icon(
+                icon: const Icon(Icons.pie_chart_rounded),
+                label: const Text('Move to Budget'),
+                onPressed: () {
+                  final nav = Navigator.of(context);
+                  nav.pop();
+                  moveBillToBudget(nav.context, b);
+                },
+              ),
+            DeleteButton(what: b.name, body: _billDeleteBody, toDelete: () => [b]),
+          ]),
         ]),
       ),
     );

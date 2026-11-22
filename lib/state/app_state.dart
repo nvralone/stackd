@@ -46,6 +46,14 @@ class AppState extends ChangeNotifier {
     localOnlyChosen = db.getKv('local_only') == '1';
     brain = CloverBrain(_loadHistory());
     voice?.onTalking = (v) => talking.value = v;
+    // If the saved login is restored or refreshed after startup, leave the sign-in screen automatically.
+    sync?.client.auth.onAuthStateChange.listen((s) {
+      if (s.session != null && !localOnlyChosen) {
+        if (sync?.state != SyncState.syncing) sync?.start();
+        reload();
+        notifyListeners();
+      }
+    }, onError: (_) {});
     reload();
   }
 
