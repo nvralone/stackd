@@ -1,0 +1,31 @@
+# Free iPhone build on Codemagic (macOS in the cloud). Produces an UNSIGNED STACKD.ipa
+# that AltStore / AltServer on Windows signs with your free Apple ID and installs.
+# Setup: docs/IPHONE.md
+workflows:
+  ios-unsigned:
+    name: iPhone build (unsigned, for AltStore)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      flutter: stable
+      xcode: latest
+      groups:
+        - stackd # holds SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (the public/publishable key only)
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Run tests
+        script: flutter test
+      - name: Build iOS app without signing
+        script: |
+          flutter build ios --release --no-codesign \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+      - name: Package STACKD.ipa
+        script: |
+          rm -rf Payload STACKD.ipa
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry STACKD.ipa Payload
+    artifacts:
+      - STACKD.ipa
