@@ -278,6 +278,10 @@ language plpgsql security definer set search_path = public as $$
 declare uid uuid := coalesce(auth.uid(), (to_jsonb(coalesce(new, old))->>'user_id')::uuid,
                              (to_jsonb(coalesce(new, old))->>'owner_id')::uuid);
 begin
+  -- rows removed by an account deletion cascade: the user is gone, nothing to audit
+  if tg_op = 'DELETE' and not exists (select 1 from auth.users where id = uid) then
+    return old;
+  end if;
   insert into public.audit_log(user_id, table_name, row_id, action, old_row, new_row)
   values (uid, tg_table_name, coalesce(to_jsonb(new)->>'id', to_jsonb(old)->>'id'), tg_op,
           case when tg_op <> 'INSERT' then to_jsonb(old) end,
@@ -422,3 +426,14 @@ revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
 revoke all on function public.invite_to_trip(uuid, text) from public, anon;
 grant execute on function public.invite_to_trip(uuid, text) to authenticated;
+
+-- ---------------------------------------------------------------- API grants
+-- Tables are reachable only by signed-in users, and RLS above decides which rows.
+grant usage on schema public to authenticated;
+grant select, insert, update on public.profiles, public.money_accounts, public.categories, public.income_schedules,
+  public.savings_goals, public.bills, public.bill_overrides, public.budget_allocations, public.trips,
+  public.trip_budget_items, public.clover_events to authenticated;
+grant select, insert on public.ledger_events, public.trip_entries to authenticated;
+grant select, update, delete on public.trip_members to authenticated;
+grant select on public.audit_log to authenticated;
+revoke all on all tables in schema public from anon;
