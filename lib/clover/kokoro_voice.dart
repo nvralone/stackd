@@ -3,6 +3,7 @@
 // Clover's sound = a playful Kokoro voice, raised in pitch by resampling, with delivery changes for
 // yelling / whispering. It is a general speech model shaped toward a character - not a voice actor.
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -34,7 +35,8 @@ so.OfflineTtsConfig kokoroConfig(String dir) => so.OfflineTtsConfig(
           tokens: '$dir/tokens.txt',
           lexicon: '$dir/lexicon-us-en.txt',
         ),
-        numThreads: Platform.numberOfProcessors >= 6 ? 4 : 2,
+        // measured: 6 threads is fastest on a 12-core PC; more adds overhead
+        numThreads: Platform.numberOfProcessors >= 8 ? 6 : (Platform.numberOfProcessors >= 4 ? 4 : 2),
       ),
       maxNumSentences: 1,
     );
@@ -168,35 +170,104 @@ class KokoroVoice {
     _worker = await ready.first as SendPort;
   }
 
-  /// Speaks [line] as a stream of WAV clips, one per sentence, so playback can start after the first
-  /// sentence instead of waiting for the whole line. Errors arrive as stream errors.
-  Stream<Uint8List> speak(String line, VoiceStyle style) async* {
-    if (_worker == null) {
-      _starting ??= _start();
-      try {
-        await _starting;
-      } finally {
-        _starting = null;
-      }
+  Future<void> _ensureStarted() async {
+    if (_worker != null) return;
+    _starting ??= _start();
+    try {
+      await _starting;
+    } finally {
+      _starting = null;
     }
+  }
+
+  /// Loads the model in the background (takes a few seconds) so the first line isn't late.
+  Future<void> warmUp() async {
+    if (_worker == null && await installed) await _ensureStarted();
+  }
+
+  // The worker does one small job at a time (split a line into sentences, or make one sentence).
+  // Lines someone is waiting to hear go in front of lines being made ahead of time, so a background
+  // job can never hold up what you just tapped by more than one sentence.
+  final _urgent = Queue<_Job>(), _background = Queue<_Job>();
+  bool _busy = false;
+
+  /// Same sentence already queued or being made (e.g. the Home line being prepared when you tap
+  /// replay): reuse that job instead of making it twice, and move it to the front if you're waiting.
+  final _byKey = <String, _Job>{};
+
+  Future<Object?> _run(Object msg, {required bool urgent, String? key}) {
+    final existing = key == null ? null : _byKey[key];
+    if (existing != null) {
+      if (urgent && _background.remove(existing)) _urgent.add(existing);
+      return existing.done.future;
+    }
+    final j = _Job(msg);
+    if (key != null) {
+      _byKey[key] = j;
+      j.done.future.whenComplete(() => _byKey.remove(key));
+    }
+    (urgent ? _urgent : _background).add(j);
+    _pump();
+    return j.done.future;
+  }
+
+  Future<void> _pump() async {
+    if (_busy || _worker == null) return;
+    final j = _urgent.isNotEmpty ? _urgent.removeFirst() : (_background.isNotEmpty ? _background.removeFirst() : null);
+    if (j == null) return;
+    _busy = true;
+    final port = ReceivePort();
+    _worker!.send((port.sendPort, j.msg));
+    final r = await port.first;
+    port.close();
+    _busy = false;
+    j.done.complete(r);
+    _pump();
+  }
+
+  /// Drops queued sentences of lines nobody is waiting for anymore (a newer line was tapped).
+  void cancelUrgent() {
+    while (_urgent.isNotEmpty) {
+      _urgent.removeFirst().done.complete(null);
+    }
+  }
+
+  /// Speaks [line] as a stream of WAV clips, one per sentence, so playback can start after the first
+  /// sentence instead of waiting for the whole line. All sentences are queued at once, so the next one
+  /// is being made while the current one plays. [urgent]: someone is waiting to hear it.
+  /// Errors arrive as stream errors; a cancelled line just ends.
+  Stream<Uint8List> speak(String line, VoiceStyle style, {bool urgent = true}) async* {
+    await _ensureStarted();
     final d = deliver(line);
     final (pitch, speed, volume) = switch (d.tone) {
       Tone.yell => (style.pitch * 1.06, style.speed * 1.12, 1.0),
       Tone.whisper => (style.pitch * 0.97, style.speed * 0.88, 0.45),
       Tone.normal => (style.pitch, style.speed, 0.9),
     };
-    final reply = ReceivePort();
-    // Pitch-up by resampling also speeds speech up, so generate it slower to compensate.
-    _worker!.send((reply.sendPort, d.text, style.sid, speed / pitch, pitch, volume));
-    await for (final r in reply) {
-      if (r == true) break; // done
-      if (r is String) {
-        reply.close();
-        throw Exception(r);
+    final split = await _run(('split', d.text), urgent: urgent, key: 'split|${d.text}');
+    if (split == null) return;
+    if (split is String) throw Exception(split);
+    // A long first sentence is split at its first comma so Clover starts talking sooner.
+    final sentences = [for (final s in split as List) s as List<int>];
+    if (sentences.isNotEmpty && sentences.first.length > 30) {
+      final comma = sentences.first.indexOf(44); // ','
+      if (comma > 8 && comma < sentences.first.length - 8) {
+        final first = sentences.removeAt(0);
+        sentences.insertAll(0, [first.sublist(0, comma + 1), first.sublist(comma + 1).skipWhile((c) => c == 32).toList()]);
       }
-      yield r as Uint8List;
     }
-    reply.close();
+    // Pitch-up by resampling also speeds speech up, so generate it slower to compensate.
+    final jobs = [
+      for (final cps in sentences)
+        _run(('gen', cps, style.sid, speed / pitch, pitch, volume),
+            urgent: urgent, key: '${style.sid}|${(speed / pitch).toStringAsFixed(3)}|${pitch.toStringAsFixed(3)}|$volume|${cps.join(',')}'),
+    ];
+    for (final job in jobs) {
+      final r = await job;
+      if (r == null) return;
+      if (r is String) throw Exception(r);
+      if ((r as Uint8List).length > 44) yield r;
+    }
   }
 
   static void _workerMain((SendPort, String) args) {
@@ -219,15 +290,18 @@ class KokoroVoice {
         inbox.close();
         return;
       }
-      final (reply, text, sid, speed, pitch, volume) = msg as (SendPort, String, int, double, double, double);
+      final (reply, job) = msg as (SendPort, Object);
       if (tts == null || ph == null) return reply.send(error ?? 'Voice not loaded');
       try {
-        for (final sentence in ph.codepoints(text)) {
-          final a = tts.generateWithConfig(
-              text: '', config: so.OfflineTtsGenerationConfig(sid: sid, speed: speed, phonemeCodepoints: [sentence]));
-          if (a.samples.isNotEmpty) reply.send(wavBytes(a.samples, a.sampleRate, pitch: pitch, volume: volume));
+        switch (job) {
+          case ('split', String text):
+            reply.send(ph.codepoints(text));
+          case ('gen', List<int> cps, int sid, double speed, double pitch, double volume):
+            final a = tts.generateWithConfig(text: '', config: so.OfflineTtsGenerationConfig(sid: sid, speed: speed, phonemeCodepoints: [cps]));
+            reply.send(wavBytes(a.samples, a.sampleRate, pitch: pitch, volume: volume));
+          default:
+            reply.send('Voice error: unknown job');
         }
-        reply.send(true);
       } catch (e) {
         reply.send('Voice error: $e');
       }
@@ -235,6 +309,11 @@ class KokoroVoice {
   }
 }
 
+class _Job {
+  final Object msg;
+  final done = Completer<Object?>();
+  _Job(this.msg);
+}
 /// Joins WAV clips made by [wavBytes] (same format) into one file, for caching a whole line.
 Uint8List joinWavs(List<Uint8List> clips) {
   if (clips.length == 1) return clips.single;

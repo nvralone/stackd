@@ -176,7 +176,10 @@ class CloverSettings extends StatelessWidget {
             ButtonSegment(value: 'babble', label: Text('Gibberish'), icon: Icon(Icons.graphic_eq_rounded)),
           ],
           selected: {p.voiceStyle},
-          onSelectionChanged: (v) => set('voice', v.first),
+          onSelectionChanged: (v) {
+            set('voice', v.first);
+            if (v.first == 'clover') app.warmVoice();
+          },
         ),
         Padding(
           padding: const EdgeInsets.only(top: 6),

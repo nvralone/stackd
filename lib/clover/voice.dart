@@ -211,14 +211,13 @@ class CloverVoice {
   Future<void> character(String text, CloverMood mood, {required int volume, required VoiceStyle style}) async {
     final token = ++_seq;
     final kokoro = KokoroVoice.instance;
+    kokoro.cancelUrgent(); // stop making the sentences of an older line
     if (!await kokoro.installed) return talk(text, mood, volume: volume);
     final s = _moodStyle(style, mood);
     try {
       await _tts.stop();
       await _player.stop();
       onTalking?.call(true);
-      if (_preparing == text && _prepareJob != null) await _prepareJob; // being made right now: wait, then play it
-      if (token != _seq) return;
       final cached = await _cacheFile(text, s);
       final dir = cached.parent;
       if (cached.existsSync()) {
@@ -269,7 +268,7 @@ class CloverVoice {
       final cached = await _cacheFile(text, s);
       if (cached.existsSync()) return;
       _preparing = text;
-      final clips = await kokoro.speak(text, s).toList();
+      final clips = await kokoro.speak(text, s, urgent: false).toList();
       if (clips.isNotEmpty) {
         await cached.parent.create(recursive: true);
         await cached.writeAsBytes(joinWavs(clips));

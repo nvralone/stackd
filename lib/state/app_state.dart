@@ -125,6 +125,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Character voice was just turned on: load it now so the first line isn't late.
+  void warmVoice() => _prepareVoice();
+
   /// Character voice: make the current Home line ahead of time so replay plays instantly.
   void _prepareVoice() {
     final s = cloverNow;
