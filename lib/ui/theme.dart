@@ -2,35 +2,83 @@ import 'package:material_ui/material_ui.dart';
 
 /// Semantic accents used across the app.
 class Accents {
-  static const savings = Color(0xFF7BD88F); // soft green
+  static const savings = Color(0xFF5BE38A); // money green
   static const vacation = Color(0xFFB39DFF); // lavender
   static const vacationBlue = Color(0xFF7FB2FF);
   static const income = Color(0xFFFFD166); // warm yellow
   static const danger = Color(0xFFFF6B6B);
   static const warn = Color(0xFFFFA94D);
+  static const purple = Color(0xFF9D7BFF);
+}
+
+/// Background / surface tones (dark charcoal + deep purple).
+class Tones {
+  static const bgDark = Color(0xFF0F0C17);
+  static const bgDark2 = Color(0xFF1A1230);
+  static const cardDark = Color(0xFF1B1628);
+  static const cardDarkHi = Color(0xFF241D36);
+  static const outlineDark = Color(0xFF3A2D5E);
+  static const bgLight = Color(0xFFF1EDFA);
+  static const cardLight = Colors.white;
+  static const outlineLight = Color(0xFFD9CFF5);
 }
 
 ThemeData buildTheme(Brightness b) {
   final dark = b == Brightness.dark;
   final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF8E7CFF),
+    seedColor: Accents.purple,
     brightness: b,
-    surface: dark ? const Color(0xFF17141F) : const Color(0xFFF7F5FB),
-    primary: dark ? const Color(0xFFB8A9FF) : const Color(0xFF5B47C9),
+    surface: dark ? Tones.cardDark : const Color(0xFFF8F6FD),
+    primary: dark ? const Color(0xFFB9A3FF) : const Color(0xFF5B3FD1),
     secondary: Accents.savings,
     tertiary: Accents.income,
     error: Accents.danger,
+    outlineVariant: dark ? Tones.outlineDark : Tones.outlineLight,
   );
-  final cardColor = dark ? const Color(0xFF221E2D) : Colors.white;
+  final cardColor = dark ? Tones.cardDark : Tones.cardLight;
+  final outline = dark ? Tones.outlineDark : Tones.outlineLight;
   return ThemeData(
     colorScheme: scheme,
     brightness: b,
-    scaffoldBackgroundColor: dark ? const Color(0xFF131119) : const Color(0xFFF2EFF8),
+    scaffoldBackgroundColor: dark ? Tones.bgDark : Tones.bgLight,
+    dividerTheme: DividerThemeData(color: outline.withValues(alpha: 0.6)),
     cardTheme: CardThemeData(
       color: cardColor,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: outline.withValues(alpha: 0.7))),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: dark ? Tones.cardDark : Tones.cardLight,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: dark ? Tones.cardDarkHi : Tones.cardLight,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: outline)),
+    ),
+    chipTheme: ChipThemeData(
+      side: BorderSide(color: outline),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      backgroundColor: dark ? Tones.cardDarkHi : const Color(0xFFF3EFFC),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        side: BorderSide(color: scheme.primary.withValues(alpha: 0.55), width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: dark ? const Color(0xFF6D4AE8) : const Color(0xFF5B3FD1),
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: Color(0xFFB9A3FF), width: 1.5)),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        side: BorderSide(color: outline),
+        selectedBackgroundColor: scheme.primary.withValues(alpha: 0.22),
+      ),
     ),
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
@@ -41,7 +89,7 @@ ThemeData buildTheme(Brightness b) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: dark ? const Color(0xFF2A2536) : const Color(0xFFEDE9F5),
+      fillColor: dark ? const Color(0xFF231C33) : const Color(0xFFEDE7FA),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -51,9 +99,10 @@ ThemeData buildTheme(Brightness b) {
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: dark ? const Color(0xFF1B1824) : Colors.white,
-      indicatorColor: scheme.primary.withValues(alpha: 0.22),
-      labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+      backgroundColor: dark ? const Color(0xFF140F20) : Colors.white,
+      indicatorColor: scheme.primary.withValues(alpha: 0.24),
+      indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: scheme.primary.withValues(alpha: 0.6))),
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
     ),
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),

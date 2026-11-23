@@ -4,6 +4,7 @@ import 'package:stackd/data/local_db.dart';
 import 'package:stackd/data/models.dart';
 import 'package:stackd/state/app_state.dart';
 import 'package:stackd/ui/app.dart';
+import 'package:stackd/ui/pixel.dart';
 
 import 'helpers.dart';
 
@@ -34,25 +35,25 @@ void main() {
     final app = readyApp();
     await pumpAt(t, app, const Size(390, 844));
     expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byType(SideNav), findsNothing);
     expect(find.byType(NavigationDestination), findsNWidgets(6));
-    expect(find.text('SPARE MONEY (YOURS TO SPEND)'), findsOneWidget);
+    expect(find.text('Safe to Spend'), findsOneWidget);
     await t.tap(find.text('Bills').last);
     await t.pump(const Duration(milliseconds: 500));
     expect(find.text('Next 30 days'), findsWidgets);
     await t.tap(find.byTooltip('Settings').first);
     await t.pump(const Duration(milliseconds: 500));
-    expect(find.text('Money accounts'), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is PixelText && w.text == 'Money accounts'), findsOneWidget);
     await settle(t);
   });
 
   testWidgets('desktop (Windows-size window): sidebar navigation, no overflow', (t) async {
     final app = readyApp();
     await pumpAt(t, app, const Size(1366, 768));
-    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(SideNav), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
     for (final label in ['Activity', 'Budget', 'Goals', 'Bills', 'Insights', 'Settings', 'Home']) {
-      await t.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text(label)));
+      await t.tap(find.descendant(of: find.byType(SideNav), matching: find.text(label)));
       await t.pump(const Duration(milliseconds: 400));
       expect(t.takeException(), isNull, reason: label);
     }

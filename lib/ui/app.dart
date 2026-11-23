@@ -4,6 +4,7 @@ import '../clover/clover_widget.dart';
 import '../clover/moods.dart';
 import '../state/app_state.dart';
 import 'common.dart';
+import 'pixel.dart';
 import 'screens/activity.dart';
 import 'screens/auth.dart';
 import 'screens/bills.dart';
@@ -115,37 +116,108 @@ class _ShellState extends State<Shell> {
     );
     if (wide) {
       return Scaffold(
-        floatingActionButton: index == 6 ? null : fab,
+        floatingActionButton: index == 6 || index == 0 ? null : fab,
         body: Row(children: [
-          NavigationRail(
-            extended: MediaQuery.sizeOf(context).width >= 1200,
-            selectedIndex: index,
-            onDestinationSelected: go,
-            labelType: MediaQuery.sizeOf(context).width >= 1200 ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Image.asset('assets/clover/clover_base.png', width: 40, filterQuality: FilterQuality.none),
-            ),
-            destinations: [
-              for (final d in destinations)
-                NavigationRailDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selected), label: Text(d.label)),
-            ],
-          ),
-          const VerticalDivider(width: 1),
+          SideNav(index: index, onSelect: go),
           Expanded(child: body),
         ]),
       );
-    }
-    // Mobile: six tabs in the bottom bar; Settings sits in each page's app bar.
+    }    // Mobile: six tabs in the bottom bar; Settings sits in each page's app bar.
     return Scaffold(
       body: body,
-      floatingActionButton: index == 6 ? null : fab,
+      floatingActionButton: index == 6 || index == 0 ? null : fab,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index.clamp(0, 5) == index ? index : 0,
         onDestinationSelected: go,
         destinations: [
           for (final d in destinations.take(6)) NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selected), label: d.label),
         ],
+      ),
+    );
+  }
+}
+
+/// Desktop / tablet navigation: pixel logo, pill buttons, a little night scene with Clover at the bottom.
+class SideNav extends StatelessWidget {
+  final int index;
+  final ValueChanged<int> onSelect;
+  const SideNav({super.key, required this.index, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.cs;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final full = MediaQuery.sizeOf(context).width >= 1200;
+    return Container(
+      width: full ? 232 : 88,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dark ? const [Tones.bgDark2, Tones.bgDark] : const [Color(0xFFE9E1FB), Tones.bgLight],
+        ),
+        border: Border(right: BorderSide(color: cs.outlineVariant)),
+      ),
+      child: SafeArea(
+        child: Column(children: [
+          const SizedBox(height: 24),
+          if (full)
+            const Padding(padding: EdgeInsets.only(right: 16), child: StackdLogo(size: 26))
+          else
+            Image.asset('assets/clover/clover_base.png', width: 44, filterQuality: FilterQuality.none),
+          const SizedBox(height: 28),
+          for (var i = 0; i < destinations.length; i++)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: full ? 14 : 10, vertical: 3),
+              child: _NavItem(d: destinations[i], selected: i == index, full: full, onTap: () => onSelect(i)),
+            ),
+          const Spacer(),
+          SizedBox(
+            height: 120,
+            child: Stack(fit: StackFit.expand, children: [
+              NightScene(tint: cs.primary),
+              const Positioned(left: 12, bottom: 6, child: CloverSprite(mood: CloverMood.sleepy, size: 52)),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final Dest d;
+  final bool selected, full;
+  final VoidCallback onTap;
+  const _NavItem({required this.d, required this.selected, required this.full, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.cs;
+    final fg = selected ? cs.onSurface : cs.onSurfaceVariant;
+    return Tooltip(
+      message: full ? '' : d.label,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          color: selected ? cs.primary.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: selected ? cs.primary.withValues(alpha: 0.75) : Colors.transparent, width: 1.5),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: full ? 14 : 0, vertical: 12),
+            child: Row(mainAxisAlignment: full ? MainAxisAlignment.start : MainAxisAlignment.center, children: [
+              Icon(selected ? d.selected : d.icon, color: selected ? cs.primary : fg, size: 24),
+              if (full) ...[
+                const SizedBox(width: 14),
+                Text(d.label, style: TextStyle(fontSize: 16, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: fg)),
+              ],
+            ]),
+          ),
+        ),
       ),
     );
   }
@@ -160,7 +232,7 @@ class PageBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(64);
   @override
   Widget build(BuildContext context) => AppBar(
-        title: Text(title),
+        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: PixelText(title, size: 20, shadow: context.cs.primary.withValues(alpha: 0.45))),
         toolbarHeight: 64,
         actions: [
           ...actions,

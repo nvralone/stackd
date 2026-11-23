@@ -296,6 +296,7 @@ class _AllocationSheetState extends State<AllocationSheet> {
         const SizedBox(height: 12),
         if (widget.allowModes)
           SegmentedButton<Mode>(
+            showSelectedIcon: false,
             segments: const [
               ButtonSegment(value: Mode.suggested, label: Text('Suggested')),
               ButtonSegment(value: Mode.manual, label: Text('Manual')),

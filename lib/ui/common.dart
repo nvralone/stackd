@@ -5,6 +5,7 @@ import '../core/dates.dart';
 import '../core/money.dart';
 import '../data/models.dart';
 import '../state/app_state.dart';
+import 'pixel.dart';
 import 'theme.dart';
 
 class AppScope extends InheritedNotifier<AppState> {
@@ -45,7 +46,7 @@ class Section extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
         child: Row(children: [
-          Expanded(child: Text(title, style: context.tt.titleMedium?.copyWith(fontWeight: FontWeight.w800))),
+          Expanded(child: Align(alignment: Alignment.centerLeft, child: FittedBox(fit: BoxFit.scaleDown, child: PixelText(title, size: 12)))),
           ?trailing,
         ]),
       );
@@ -78,8 +79,13 @@ class Stat extends StatelessWidget {
         onTap: onTap,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            if (icon != null) Icon(icon, size: 16, color: color ?? context.cs.onSurfaceVariant),
-            if (icon != null) const SizedBox(width: 6),
+            if (icon != null)
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(color: (color ?? context.cs.primary).withValues(alpha: 0.16), borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, size: 16, color: color ?? context.cs.primary),
+              ),
+            if (icon != null) const SizedBox(width: 8),
             Expanded(child: Text(label, style: context.tt.labelMedium?.copyWith(color: context.cs.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
           ]),
           const SizedBox(height: 6),
@@ -97,17 +103,7 @@ class Bar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final f = max <= 0 ? 0.0 : (value.clamp(0, max) / max);
-    final over = max > 0 && value > max;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(height),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: f),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutCubic,
-        builder: (_, v, _) => LinearProgressIndicator(
-            value: v, minHeight: height, color: over ? Accents.danger : color, backgroundColor: color.withValues(alpha: 0.15)),
-      ),
-    );
+    return PixelBar(f, color: color, height: height < 10 ? 10 : height, danger: max > 0 && value > max);
   }
 }
 
