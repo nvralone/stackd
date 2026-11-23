@@ -73,6 +73,7 @@ class _EntrySheetState extends State<EntrySheet> {
     final group = newId();
     // Proposal is computed BEFORE the income is recorded so bills coverage is judged on current free money.
     final proposal = kind == 'income' && source == 'paycheck' ? suggestPaycheck(app.data, cents) : null;
+    final withEnvelope = proposal != null && app.data.billEnvelopeUnassigned > 0 ? suggestPaycheck(app.data, cents, useUnassigned: true) : null;
     final e = app.event(
       id: eventId,
       kind: kind,
@@ -103,7 +104,7 @@ class _EntrySheetState extends State<EntrySheet> {
     final nav = Navigator.of(context);
     nav.pop();
     if (proposal != null && proposal.lines.any((l) => l.kind != TargetKind.unallocated)) {
-      sheet(nav.context, AllocationSheet(title: 'Split your paycheck', amount: cents, groupId: group, date: date, suggested: proposal));
+      sheet(nav.context, AllocationSheet(title: 'Split your paycheck', amount: cents, groupId: group, date: date, suggested: proposal, suggestedWithEnvelope: withEnvelope));
     }
   }
 

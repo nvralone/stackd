@@ -5,6 +5,9 @@ import '../data/models.dart';
 import 'bills.dart' as billing;
 import 'ledger.dart';
 
+/// The vault that holds money set aside for bills.
+const billSavingsName = 'Bill savings';
+
 class CategoryStatus {
   final Category category;
   final int limit, extra, rollover, spent, previousSpent;
@@ -100,8 +103,55 @@ class FinanceData {
   /// End of the safe-to-spend window (inclusive day): next payday, or 14 days out without a schedule.
   DateTime get horizonEnd => nextPayday ?? addDays(todayDate, 14);
 
+  /// Bills due before payday, minus Bill envelope money already set aside for those exact bills
+  /// (that money is counted in Saved, so it must not be held a second time here).
   int get reservedForBills =>
-      billing.obligationsUntil(bills, ledger, overrides, addDays(horizonEnd, 1), now: now);
+      billing.obligationsUntil(bills, ledger, overrides, addDays(horizonEnd, 1), now: now, earmarks: billEarmarks);
+
+  // ---------------------------------------------------------------- bill envelope
+  SavingsGoal? get billEnvelope => goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
+  int get billEnvelopeBalance => billEnvelope == null ? 0 : ledger.goalBalance(billEnvelope!.id);
+
+  /// Envelope money set aside for a specific bill: deposits tagged with that bill, minus money
+  /// taken out for it (a running total that never goes below zero). If money was taken back out
+  /// of the envelope so it holds less than all of these, the bills due last lose their share first.
+  late final Map<String, int> billEarmarks = _earmarks();
+
+  /// Envelope money not set aside for any particular bill. It is never assigned to a bill silently.
+  int get billEnvelopeUnassigned =>
+      (billEnvelopeBalance - billEarmarks.values.fold<int>(0, (s, v) => s + v)).clamp(0, 1 << 40).toInt();
+
+  Map<String, int> _earmarks() {
+    final g = billEnvelope;
+    if (g == null) return const {};
+    final tagged = ledger.active.where((e) => e.goalId == g.id && e.billId != null).toList();
+    final order = {for (var i = 0; i < tagged.length; i++) tagged[i]: i};
+    tagged.sort((a, b) {
+      final c = a.occurredOn.compareTo(b.occurredOn);
+      return c != 0 ? c : order[a]!.compareTo(order[b]!);
+    });
+    final run = <String, int>{};
+    for (final e in tagged) {
+      final v = (run[e.billId!] ?? 0) + (e.kind == 'goal_deposit' ? e.amountCents : -e.amountCents);
+      run[e.billId!] = v < 0 ? 0 : v;
+    }
+    run.removeWhere((_, v) => v == 0);
+    var over = run.values.fold(0, (s, v) => s + v) - ledger.goalBalance(g.id);
+    if (over > 0) {
+      DateTime dueOf(String id) {
+        final b = bill(id);
+        return (b == null ? null : billing.nextOpen(b, ledger, overrides, now: now)?.due) ?? DateTime.utc(9999);
+      }
+      for (final id in run.keys.toList()..sort((a, b) => dueOf(b).compareTo(dueOf(a)))) {
+        final cut = over < run[id]! ? over : run[id]!;
+        run[id] = run[id]! - cut;
+        over -= cut;
+        if (over == 0) break;
+      }
+      run.removeWhere((_, v) => v == 0);
+    }
+    return run;
+  }
 
   /// What's still unspent in this period's budgets (categories with a limit). That money is spoken for.
   int get budgetedRemaining =>

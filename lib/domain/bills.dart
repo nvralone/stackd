@@ -87,13 +87,18 @@ int? remainingOwed(Bill b, Ledger ledger) {
 }
 
 /// Unpaid outgoing obligations due before [until], including overdue ones. Incoming debts are excluded.
-int obligationsUntil(List<Bill> bills, Ledger ledger, List<BillOverride> overrides, DateTime until, {DateTime? now}) {
+/// [earmarks]: money already set aside per bill elsewhere (Bill envelope); it reduces that bill's amount.
+int obligationsUntil(List<Bill> bills, Ledger ledger, List<BillOverride> overrides, DateTime until,
+    {DateTime? now, Map<String, int> earmarks = const {}}) {
   var s = 0;
   for (final b in bills) {
     if (b.archived || b.deleted || b.incoming) continue;
+    var owed = 0;
     for (final o in occurrences(b, ledger, overrides, until, now: now)) {
-      if (o.open) s += o.remainingCents;
+      if (o.open) owed += o.remainingCents;
     }
+    final held = earmarks[b.id] ?? 0;
+    s += owed > held ? owed - held : 0;
   }
   return s;
 }

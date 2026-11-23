@@ -266,13 +266,18 @@ class AppState extends ChangeNotifier {
 
   /// Put money in the Bill savings envelope. [newCash]: money the app doesn't know about yet (total goes up,
   /// spare unchanged). Otherwise it comes out of spare money.
+  /// The money is set aside for the later bills it was recommended for (soonest first); anything
+  /// beyond that stays unassigned in the envelope.
   void addToBillEnvelope(int cents, {bool newCash = false, String? accountId}) {
+    final split = envelopeSplit(data, cents);
     final g = billEnvelope();
     final acct = accountId ?? data.accounts.where((a) => !a.archived).firstOrNull?.id;
     final grp = newId();
     record([
       if (newCash && acct != null) event(kind: 'adjustment', amountCents: cents, accountId: acct, groupId: grp, note: 'Cash for bills'),
-      event(kind: 'goal_deposit', amountCents: cents, goalId: g.id, groupId: grp, note: 'Bill savings'),
+      for (final e in split.entries)
+        event(kind: 'goal_deposit', amountCents: e.value, goalId: g.id, billId: e.key, groupId: grp,
+            note: e.key == null ? 'Bill savings' : 'For ${data.bill(e.key)?.name ?? 'a bill'}'),
     ]);
     final dep = data.ledger.active.where((e) => e.groupId == grp && e.kind == 'goal_deposit').firstOrNull;
     if (dep != null) {

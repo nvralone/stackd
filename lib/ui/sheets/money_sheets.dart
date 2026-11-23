@@ -124,6 +124,12 @@ class _BillEnvelopeSheetState extends State<BillEnvelopeSheet> {
             Money(saved, size: 22, color: Accents.warn),
           ]),
         ),
+        if (d.billEnvelopeUnassigned > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('${m(d.billEnvelopeUnassigned)} of it is not set aside for a specific bill yet. You can assign it when you split a paycheck.',
+                style: context.tt.bodySmall),
+          ),
         const Section('Coming up'),
         if (later.isEmpty) const Text('No later bills in the next 3 months.'),
         for (final l in later)
@@ -131,9 +137,12 @@ class _BillEnvelopeSheetState extends State<BillEnvelopeSheet> {
             dense: true,
             contentPadding: EdgeInsets.zero,
             title: Text(l.name),
-            subtitle: Text('${m(l.amount)} due ${prettyDate(l.due)}'),
-            trailing: Text('${m(l.perPaycheck)}/paycheck', style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text('${m(l.amount - l.paid)} due ${prettyDate(l.due)} · ${m(l.inEnvelope)} set aside · ${l.paychecksLeft} paycheck${l.paychecksLeft == 1 ? '' : 's'} left'),
+            trailing: Text(l.recommended > 0 ? '${m(l.recommended)} now' : 'on track', style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
+        if (cents > 0 && later.isNotEmpty)
+          Text('Adding ${m(cents)} sets aside: ${envelopeSplit(d, cents).entries.map((e) => '${e.key == null ? 'unassigned' : d.bill(e.key)?.name} ${m(e.value)}').join(', ')}',
+              style: context.tt.bodySmall),
         const SizedBox(height: 8),
         Text(need > 0 ? 'Recommended to add now: ${m(need)}' : 'You are on track. Nothing needed right now.',
             style: TextStyle(fontWeight: FontWeight.w800, color: need > 0 ? Accents.warn : Accents.savings)),
@@ -168,9 +177,15 @@ class _BillEnvelopeSheetState extends State<BillEnvelopeSheet> {
         TextButton.icon(
           onPressed: cents == 0 || saved == 0
               ? null
-              : () {
+              : () async {
                   final take = cents > saved ? saved : cents;
+                  if (take > d.billEnvelopeUnassigned &&
+                      !await confirm(context, 'Take out bill money?',
+                          'Only ${m(d.billEnvelopeUnassigned)} is unassigned. Taking ${m(take)} uses money set aside for your bills (the bill due last loses it first).')) {
+                    return;
+                  }
                   app.takeFromBillEnvelope(take);
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   context.toast('Moved ${m(take)} back to spare money.');
                 },

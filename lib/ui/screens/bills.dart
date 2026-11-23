@@ -7,6 +7,7 @@ import '../../core/money.dart';
 import '../../data/models.dart';
 import '../../domain/allocation.dart';
 import '../../domain/bills.dart';
+import '../../domain/finance.dart';
 import '../app.dart';
 import '../common.dart';
 import '../theme.dart';
@@ -177,7 +178,7 @@ class BillDetail extends StatelessWidget {
     if (b == null) return const Scaffold(body: Empty('Bill not found'));
     final horizon = addDays(d.todayDate, b.frequency == 'yearly' ? 800 : 120);
     final occ = occurrences(b, d.ledger, d.overrides, horizon, now: d.now);
-    final payments = d.ledger.all.where((e) => e.billId == id).toList()..sort((a, b) => b.occurredOn.compareTo(a.occurredOn));
+    final payments = d.ledger.all.where((e) => e.billId == id && e.goalId == null).toList()..sort((a, b) => b.occurredOn.compareTo(a.occurredOn));
     final remaining = remainingOwed(b, d.ledger);
     return Scaffold(
       appBar: AppBar(title: Text(b.name), actions: [billMenu(context, b, inDetail: true)]),
@@ -247,14 +248,16 @@ class _PayBillState extends State<PayBill> {
   late String? account = widget.o.bill.accountId ?? context.appRead.data.accounts.where((a) => !a.archived).firstOrNull?.id;
   late DateTime date = context.appRead.data.todayDate;
   late final SavingsGoal? billVault = context.appRead.data.goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
-  late bool fromSavings = billVault != null && context.appRead.data.ledger.goalBalance(billVault!.id) > 0;
+  late bool fromSavings = _usable(context.appRead.data) > 0;
+  /// Envelope money this bill may use: what's set aside for it plus unassigned money (never other bills' money).
+  int _usable(FinanceData d) => billVault == null ? 0 : (d.billEarmarks[widget.o.bill.id] ?? 0) + d.billEnvelopeUnassigned;
   bool outsideCash = false; // paid with money that was never in the app
 
   @override
   Widget build(BuildContext context) {
     final o = widget.o;
     final b = o.bill;
-    final saved = billVault == null ? 0 : context.app.data.ledger.goalBalance(billVault!.id);
+    final saved = _usable(context.app.data);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Form(
@@ -282,7 +285,7 @@ class _PayBillState extends State<PayBill> {
               value: fromSavings,
               onChanged: (v) => setState(() => fromSavings = v!),
               title: const Text('Use my Bill savings'),
-              subtitle: Text('${m(saved)} saved for bills. It comes out of that vault, so your free money stays the same.'),
+              subtitle: Text('${m(saved)} in the Bill envelope for this bill. It comes out of the envelope, so your free money stays the same.'),
             ),
           const SizedBox(height: 16),
           FilledButton(
@@ -303,7 +306,7 @@ class _PayBillState extends State<PayBill> {
                 if (outsideCash && account != null)
                   app.event(kind: 'adjustment', amountCents: cents, accountId: account, on: date, groupId: eventId, note: 'Paid with cash not in the app'),
                 if (useSaved > 0)
-                  app.event(kind: 'goal_withdraw', amountCents: useSaved, goalId: billVault!.id, reason: 'planned', on: date, groupId: eventId, note: 'Paid ${b.name}'),
+                  app.event(kind: 'goal_withdraw', amountCents: useSaved, goalId: billVault!.id, billId: b.id, reason: 'planned', on: date, groupId: eventId, note: 'Paid ${b.name}'),
               ], trigger: BillPaid(e));
               if (context.mounted) Navigator.pop(context);
             },

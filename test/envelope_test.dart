@@ -20,12 +20,13 @@ void main() {
     final app = setup();
     final spare = app.data.availableToSpend;
     final need = billSavingsNeed(app.data);
-    expect(need, 5000);
+    expect(need, 4000); // $200 over 5 paychecks
     app.addToBillEnvelope(need);
     final d = app.data;
     expect(d.totalMoney, 30000);
-    expect(d.availableToSpend, spare - 5000);
-    expect(billSavingsNeed(d), 5000); // next paycheck's share: still owed $150 over 4 paychecks
+    expect(d.availableToSpend, spare - 4000);
+    expect(d.billEarmarks, {'ins': 4000}); // set aside for Insurance
+    expect(billSavingsNeed(d), 0); // this pay period's share is done; next payday asks again
     await Future<void>.delayed(const Duration(seconds: 4));
   });
 

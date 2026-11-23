@@ -4,7 +4,6 @@ import 'dart:math';
 import '../core/dates.dart';
 import '../core/money.dart';
 import '../data/models.dart';
-import '../domain/allocation.dart';
 import '../domain/finance.dart';
 import '../domain/insights.dart';
 import 'dialogue.dart';
