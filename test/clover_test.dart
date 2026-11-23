@@ -91,6 +91,17 @@ void main() {
       expect(s.mood, anyOf(CloverMood.determined, CloverMood.thinking));
     });
 
+    test('using the Bill envelope is praised, never scolded', () {
+      final env = SavingsGoal(id: 'bs', name: 'Bill savings', goalCents: 20000);
+      final w = ev('goal_withdraw', 5000, goal: 'bs', reason: 'planned');
+      final f = FinanceData(accounts: [cash], goals: [env], events: [ev('goal_deposit', 20000, goal: 'bs'), w], now: now);
+      for (final p in ['friendly', 'chaotic', 'savage']) {
+        final s = CloverBrain([], rng: Random(1)).react(FinanceData(accounts: [cash], goals: [env], events: f.ledger.all, prefs: Prefs(clover: {'personality': p}), now: now), GoalMoved(w))!;
+        expect(s.topic, 'bill_envelope_use');
+        expect(s.mood, isNot(anyOf(CloverMood.disappointed, CloverMood.angry, CloverMood.crying, CloverMood.begging)));
+      }
+    });
+
     test('vacation withdrawal begs', () {
       final w = ev('goal_withdraw', 5000, goal: 'beach', reason: 'other');
       final s = brain().react(fin([ev('goal_deposit', 20000, goal: 'beach'), w]), GoalMoved(w))!;

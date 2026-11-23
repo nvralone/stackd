@@ -274,12 +274,18 @@ class AppState extends ChangeNotifier {
       if (newCash && acct != null) event(kind: 'adjustment', amountCents: cents, accountId: acct, groupId: grp, note: 'Cash for bills'),
       event(kind: 'goal_deposit', amountCents: cents, goalId: g.id, groupId: grp, note: 'Bill savings'),
     ]);
+    final dep = data.ledger.active.where((e) => e.groupId == grp && e.kind == 'goal_deposit').firstOrNull;
+    if (dep != null) {
+      _react(GoalMoved(dep));
+      notifyListeners();
+    }
   }
 
   /// Take money back out of the Bill savings envelope into spare money.
   void takeFromBillEnvelope(int cents) {
     final g = billEnvelope();
-    record([event(kind: 'goal_withdraw', amountCents: cents, goalId: g.id, reason: 'planned', note: 'Back to spare money')]);
+    final w = event(kind: 'goal_withdraw', amountCents: cents, goalId: g.id, reason: 'planned', note: 'Back to spare money');
+    record([w], trigger: GoalMoved(w));
   }
 
   /// Removes one category boost (extra budget) without touching anything else.

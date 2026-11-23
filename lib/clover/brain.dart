@@ -4,6 +4,7 @@ import 'dart:math';
 import '../core/dates.dart';
 import '../core/money.dart';
 import '../data/models.dart';
+import '../domain/allocation.dart';
 import '../domain/finance.dart';
 import '../domain/insights.dart';
 import 'dialogue.dart';
@@ -186,6 +187,10 @@ class CloverBrain {
         if (g == null) return null;
         final s = f.goalStatus(g);
         final data = {'amount': formatCents(e.amountCents), 'goal': g.name, 'pct': '${s.pct}'};
+        // The Bill envelope exists to be spent on bills: filling it is smart, using it is the point.
+        if (g.name == billSavingsName) {
+          return say(e.kind == 'goal_deposit' ? 'bill_envelope_add' : 'bill_envelope_use', p, data);
+        }
         if (e.kind == 'goal_deposit') return s.complete ? say('goal_complete', p, data) : say('goal_deposit', p, data);
         if (e.reason == 'emergency') return say('emergency_withdraw', p, data);
         if (g.tripId != null) return say('vacation_withdraw', p, data);

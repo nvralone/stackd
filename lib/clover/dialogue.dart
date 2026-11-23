@@ -128,6 +128,18 @@ const Map<String, List<Line>> dialogue = {
     Line('ew2', CloverMood.thinking, "Using {amount} for an emergency? Good call. No guilt. We rebuild later.", 'f'),
     Line('ew3', CloverMood.determined, "Emergency fund doing its job. {amount}. I'm not even mad, that's smart.", 'cs'),
   ],
+  'bill_envelope_add': [
+    Line('ba1', CloverMood.proud, "{amount} into the bill envelope. Future bills? Handled."),
+    Line('ba2', CloverMood.smug, "Bill envelope +{amount}. Insurance can't sneak up on us now.", 'cs'),
+    Line('ba3', CloverMood.determined, "Stacking for bills: {amount}. That's grown-up money moves.", 'cs'),
+    Line('ba4', CloverMood.happy, "Nice! {amount} set aside so bills don't hurt later.", 'f'),
+  ],
+  'bill_envelope_use': [
+    Line('bu1', CloverMood.proud, "Used {amount} from the bill envelope. That's exactly what it's for!"),
+    Line('bu2', CloverMood.smug, "Bill paid from the envelope. Planned it, paid it. Zero panic.", 'cs'),
+    Line('bu3', CloverMood.happy, "That's the envelope doing its job. {amount}, handled. Proud of you.", 'f'),
+    Line('bu4', CloverMood.determined, "Envelope money hitting a bill? That's the whole plan working.", 's'),
+  ],
   'goal_complete': [
     Line('gc1', CloverMood.celebrating, "WE'RE RICH! Okay, not rich. BUT WE'RE GOING SOMEWHERE! {goal} is DONE!", 'cs'),
     Line('gc2', CloverMood.celebrating, "{goal} complete! You did it. Seriously, amazing."),
