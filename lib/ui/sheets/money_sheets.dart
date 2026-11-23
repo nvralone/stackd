@@ -5,6 +5,7 @@ import '../../core/dates.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../data/models.dart';
+import '../../domain/allocation.dart';
 import '../../domain/finance.dart';
 import '../common.dart';
 import '../theme.dart';
@@ -83,6 +84,106 @@ class _CountMoneySheetState extends State<CountMoneySheet> {
   }
 }
 
+/// The envelope for bills that build up (monthly insurance, subscriptions...). Add from spare money or
+/// new cash, with a recommended amount; take money back out any time.
+class BillEnvelopeSheet extends StatefulWidget {
+  const BillEnvelopeSheet({super.key});
+  @override
+  State<BillEnvelopeSheet> createState() => _BillEnvelopeSheetState();
+}
+
+class _BillEnvelopeSheetState extends State<BillEnvelopeSheet> {
+  late final amount = TextEditingController(text: () {
+    final need = billSavingsNeed(context.appRead.data);
+    return need > 0 ? centsToInput(need) : '';
+  }());
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final d = app.data;
+    final env = d.goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
+    final saved = env == null ? 0 : d.ledger.goalBalance(env.id);
+    final later = laterBills(d);
+    final need = billSavingsNeed(d);
+    final cents = (parseCents(amount.text) ?? 0).abs();
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Bill envelope', style: context.tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        Text('Money set aside for bills that come later. It is taken out of your spare money and kept here until you pay them.',
+            style: context.tt.bodySmall),
+        const SizedBox(height: 12),
+        Panel(
+          color: Accents.warn.withValues(alpha: 0.12),
+          child: Row(children: [
+            const Icon(Icons.mail_rounded, color: Accents.warn),
+            const SizedBox(width: 10),
+            Expanded(child: Text('In the envelope', style: context.tt.titleSmall)),
+            Money(saved, size: 22, color: Accents.warn),
+          ]),
+        ),
+        const Section('Coming up'),
+        if (later.isEmpty) const Text('No later bills in the next 3 months.'),
+        for (final l in later)
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(l.name),
+            subtitle: Text('${m(l.amount)} due ${prettyDate(l.due)}'),
+            trailing: Text('${m(l.perPaycheck)}/paycheck', style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        const SizedBox(height: 8),
+        Text(need > 0 ? 'Recommended to add now: ${m(need)}' : 'You are on track. Nothing needed right now.',
+            style: TextStyle(fontWeight: FontWeight.w800, color: need > 0 ? Accents.warn : Accents.savings)),
+        Text('Spare money right now: ${m(d.availableToSpend)}', style: context.tt.bodySmall),
+        const SizedBox(height: 12),
+        AmountField(amount, onChanged: (_) => setState(() {})),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: cents == 0
+              ? null
+              : () {
+                  app.addToBillEnvelope(cents);
+                  Navigator.pop(context);
+                  context.toast('Moved ${m(cents)} from spare money into the bill envelope.');
+                },
+          icon: const Icon(Icons.south_rounded),
+          label: const Text('Add from my spare money'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: cents == 0
+              ? null
+              : () {
+                  app.addToBillEnvelope(cents, newCash: true);
+                  Navigator.pop(context);
+                  context.toast('Added ${m(cents)} cash to the bill envelope. Spare money unchanged.');
+                },
+          icon: const Icon(Icons.add_card_rounded),
+          label: const Text('Add new cash I have (not in the app yet)'),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: cents == 0 || saved == 0
+              ? null
+              : () {
+                  final take = cents > saved ? saved : cents;
+                  app.takeFromBillEnvelope(take);
+                  Navigator.pop(context);
+                  context.toast('Moved ${m(take)} back to spare money.');
+                },
+          icon: const Icon(Icons.north_rounded),
+          label: const Text('Take out (back to spare money)'),
+        ),
+        const SizedBox(height: 4),
+        Text('When you pay one of these bills, tick "Use my Bill savings" and it comes out of this envelope.', style: context.tt.bodySmall),
+      ]),
+    );
+  }
+}
+
 /// Give free money a job: put it in a budget, save it in a vault, or move it to another account.
 class GiveJobSheet extends StatefulWidget {
   const GiveJobSheet({super.key});
@@ -108,10 +209,12 @@ class _GiveJobSheetState extends State<GiveJobSheet> {
         Text('Free right now: ${m(d.availableToSpend)}', style: context.tt.bodyMedium),
         const SizedBox(height: 12),
         SegmentedButton<String>(
+          showSelectedIcon: false,
           segments: const [
-            ButtonSegment(value: 'budget', label: Text('Budget'), icon: Icon(Icons.pie_chart_rounded)),
-            ButtonSegment(value: 'vault', label: Text('Vault'), icon: Icon(Icons.savings_rounded)),
-            ButtonSegment(value: 'account', label: Text('Account'), icon: Icon(Icons.swap_horiz_rounded)),
+            ButtonSegment(value: 'budget', label: Text('Budget')),
+            ButtonSegment(value: 'vault', label: Text('Vault')),
+            ButtonSegment(value: 'bills', label: Text('Bills')),
+            ButtonSegment(value: 'account', label: Text('Account')),
           ],
           selected: {where},
           onSelectionChanged: (s) => setState(() {
@@ -122,7 +225,9 @@ class _GiveJobSheetState extends State<GiveJobSheet> {
         const SizedBox(height: 12),
         AmountField(amount, autofocus: true, onChanged: (_) => setState(() {})),
         const SizedBox(height: 12),
-        if (where == 'budget')
+        if (where == 'bills')
+          Text('Goes into your Bill envelope. Recommended now: ${m(billSavingsNeed(d))}.', style: context.tt.bodyMedium)
+        else if (where == 'budget')
           CategoryPicker(value: target, onChanged: (v) => setState(() => target = v))
         else if (where == 'vault')
           DropdownButtonFormField<String>(
@@ -142,16 +247,19 @@ class _GiveJobSheetState extends State<GiveJobSheet> {
           switch (where) {
             'budget' => 'Adds to that budget for this period. The money stays where it is; it just has a job now.',
             'vault' => 'Sets it aside in the vault. It still counts in your total money, but not as free money.',
+            'bills' => 'Saved for bills that come later (monthly insurance, subscriptions). Use it when you pay them.',
             _ => 'Moves money between your accounts (e.g. cash to Cash App). Not income or spending.',
           },
           style: context.tt.bodySmall,
         ),
         const SizedBox(height: 16),
         FilledButton(
-          onPressed: cents == 0 || (where == 'account' ? (from == null || to == null) : target == null)
+          onPressed: cents == 0 || (where == 'account' ? (from == null || to == null) : (where != 'bills' && target == null))
               ? null
               : () {
-                  if (where == 'budget') {
+                  if (where == 'bills') {
+                    app.addToBillEnvelope(cents);
+                  } else if (where == 'budget') {
                     final c = d.category(target)!;
                     app.save(BudgetAllocation(
                         id: newId(), categoryId: c.id, periodStart: periodOf(d.todayDate, c.period, app.prefs.weekStart).start,

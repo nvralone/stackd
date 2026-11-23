@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../clover/clover_widget.dart';
 import '../../core/dates.dart';
+import '../../domain/allocation.dart';
 import '../../domain/bills.dart';
 import '../app.dart';
 import '../common.dart';
@@ -118,11 +119,12 @@ class HomeScreen extends StatelessWidget {
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: grid, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 120),
               children: [
-                Stat('Total money', d.totalMoney, icon: Icons.account_balance_wallet_rounded,
-                    hint: d.totalSaved > 0 ? 'includes ${m(d.totalSaved)} in vaults' : 'tap to set', onTap: () => sheet(context, const CountMoneySheet())),
+                Stat('Money not set aside', d.totalMoney - d.totalSaved, icon: Icons.account_balance_wallet_rounded,
+                    hint: '${m(d.totalMoney)} total incl. envelopes', onTap: () => sheet(context, const CountMoneySheet())),
                 Stat('Reserved for bills', d.reservedForBills, icon: Icons.event_note_rounded, color: Accents.warn, hint: 'Tap to see / change', onTap: () => sheet(context, const ReservedSheet())),
-                Stat('Saved in vaults', d.totalSaved, icon: Icons.savings_rounded, color: Accents.savings, onTap: () => Shell.go(context, 3)),
-                Stat('Vacation savings', d.vacationSaved, icon: Icons.flight_takeoff_rounded, color: Accents.vacation, onTap: () => Shell.go(context, 3)),
+                Stat('Saved (vaults + envelope)', d.totalSaved, icon: Icons.savings_rounded, color: Accents.savings, onTap: () => Shell.go(context, 3)),
+                Stat('Bill envelope', d.goals.where((g) => g.name == billSavingsName && !g.archived).fold(0, (s, g) => s + d.ledger.goalBalance(g.id)),
+                    icon: Icons.mail_rounded, color: Accents.warn, hint: 'Tap to add / take out', onTap: () => sheet(context, const BillEnvelopeSheet())),
               ],
             ),
           ],

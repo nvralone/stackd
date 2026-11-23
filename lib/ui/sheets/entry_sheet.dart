@@ -44,6 +44,7 @@ class _EntrySheetState extends State<EntrySheet> {
   late String? trip = widget.editing?.tripId ?? widget.tripId;
   late DateTime date = widget.editing?.occurredOn ?? context.appRead.data.todayDate;
   bool adjustUp = true;
+  bool outsideCash = false; // spent money that was never in the app
   bool saving = false;
 
   String? _defaultAccount() {
@@ -94,7 +95,11 @@ class _EntrySheetState extends State<EntrySheet> {
       'transfer' => TransferLogged(e),
       _ => null,
     };
-    app.record([e], trigger: trigger, also: [?tripEntry]);
+    app.record([
+      e,
+      if (kind == 'expense' && outsideCash && account != null)
+        app.event(kind: 'adjustment', amountCents: cents, accountId: account, on: date, groupId: group, note: 'Paid with cash not in the app'),
+    ], trigger: trigger, also: [?tripEntry]);
     final nav = Navigator.of(context);
     nav.pop();
     if (proposal != null && proposal.lines.any((l) => l.kind != TargetKind.unallocated)) {
@@ -165,6 +170,14 @@ class _EntrySheetState extends State<EntrySheet> {
             const SizedBox(height: 12),
           ],
           AccountPicker(value: account, label: kind == 'transfer' ? 'From account' : 'Account', onChanged: (v) => setState(() => account = v)),
+          if (kind == 'expense' && !editing)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: outsideCash,
+              onChanged: (v) => setState(() => outsideCash = v!),
+              title: const Text('Paid with cash not in the app'),
+              subtitle: const Text('Counts toward the budget, but does not take money out of your accounts.'),
+            ),
           if (kind == 'transfer') ...[
             const SizedBox(height: 12),
             AccountPicker(value: toAccount, label: 'To account', exclude: account, onChanged: (v) => setState(() => toAccount = v)),

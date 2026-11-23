@@ -10,6 +10,7 @@ import '../../domain/bills.dart';
 import '../app.dart';
 import '../common.dart';
 import '../theme.dart';
+import '../sheets/money_sheets.dart';
 import 'activity.dart';
 import 'home.dart';
 
@@ -132,7 +133,17 @@ class ReservedSheet extends StatelessWidget {
             'Tap one to mark it paid, skip it, move its date, or edit/delete the bill. That frees the money right away.',
             style: context.tt.bodySmall),
         const SizedBox(height: 8),
-        if (list.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('Nothing reserved. All clear.')),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.mail_rounded, color: Accents.warn),
+            title: const Text('Bill envelope (for later bills)'),
+            subtitle: Text('${m(d.goals.where((g) => g.name == billSavingsName && !g.archived).fold(0, (s, g) => s + d.ledger.goalBalance(g.id)))} saved · recommended now: ${m(billSavingsNeed(d))}'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => sheet(context, const BillEnvelopeSheet()),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (list.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('Nothing reserved before payday. All clear.')),
         for (final o in list) OccurrenceTile(o),
       ]),
     );
@@ -237,6 +248,7 @@ class _PayBillState extends State<PayBill> {
   late DateTime date = context.appRead.data.todayDate;
   late final SavingsGoal? billVault = context.appRead.data.goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
   late bool fromSavings = billVault != null && context.appRead.data.ledger.goalBalance(billVault!.id) > 0;
+  bool outsideCash = false; // paid with money that was never in the app
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +268,15 @@ class _PayBillState extends State<PayBill> {
           AccountPicker(value: account, label: b.incoming ? 'Received into' : 'Paid from', onChanged: (v) => setState(() => account = v)),
           const SizedBox(height: 12),
           DateField(value: date, label: 'Paid on', onChanged: (d) => setState(() => date = d!)),
-          if (!b.incoming && saved > 0)
+          if (!b.incoming)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: outsideCash,
+              onChanged: (v) => setState(() => outsideCash = v!),
+              title: const Text('Paid with cash not in the app'),
+              subtitle: const Text('Marks it paid without taking money out of your accounts.'),
+            ),
+          if (!b.incoming && saved > 0 && !outsideCash)
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               value: fromSavings,
@@ -277,9 +297,11 @@ class _PayBillState extends State<PayBill> {
               final e = app.event(
                   id: eventId, kind: b.incoming ? 'loan_in' : 'bill_payment', amountCents: cents, accountId: account,
                   categoryId: b.incoming ? null : b.categoryId, billId: b.id, billOccurrence: o.index, on: date, groupId: eventId);
-              final useSaved = fromSavings && billVault != null && !b.incoming ? (cents < saved ? cents : saved) : 0;
+              final useSaved = fromSavings && !outsideCash && billVault != null && !b.incoming ? (cents < saved ? cents : saved) : 0;
               app.record([
                 e,
+                if (outsideCash && account != null)
+                  app.event(kind: 'adjustment', amountCents: cents, accountId: account, on: date, groupId: eventId, note: 'Paid with cash not in the app'),
                 if (useSaved > 0)
                   app.event(kind: 'goal_withdraw', amountCents: useSaved, goalId: billVault!.id, reason: 'planned', on: date, groupId: eventId, note: 'Paid ${b.name}'),
               ], trigger: BillPaid(e));

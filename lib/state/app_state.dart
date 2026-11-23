@@ -16,6 +16,7 @@ import '../data/defaults.dart';
 import '../data/local_db.dart';
 import '../data/models.dart';
 import '../data/sync.dart';
+import '../domain/allocation.dart';
 import '../domain/finance.dart';
 import '../services/notifications.dart';
 
@@ -252,6 +253,33 @@ class AppState extends ChangeNotifier {
       for (final a in data.budgetAllocations) a..deleted = true,
       for (final o in data.overrides.where((o) => o.setAside)) o..setAside = false,
     ]);
+  }
+
+  /// The Bill savings envelope (created the first time it's needed).
+  SavingsGoal billEnvelope() {
+    final existing = data.goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
+    if (existing != null) return existing;
+    final g = SavingsGoal(id: newId(), name: billSavingsName, goalCents: 50000, contributionFreq: 'none', color: 0xFFFFA94D);
+    save(g);
+    return g;
+  }
+
+  /// Put money in the Bill savings envelope. [newCash]: money the app doesn't know about yet (total goes up,
+  /// spare unchanged). Otherwise it comes out of spare money.
+  void addToBillEnvelope(int cents, {bool newCash = false, String? accountId}) {
+    final g = billEnvelope();
+    final acct = accountId ?? data.accounts.where((a) => !a.archived).firstOrNull?.id;
+    final grp = newId();
+    record([
+      if (newCash && acct != null) event(kind: 'adjustment', amountCents: cents, accountId: acct, groupId: grp, note: 'Cash for bills'),
+      event(kind: 'goal_deposit', amountCents: cents, goalId: g.id, groupId: grp, note: 'Bill savings'),
+    ]);
+  }
+
+  /// Take money back out of the Bill savings envelope into spare money.
+  void takeFromBillEnvelope(int cents) {
+    final g = billEnvelope();
+    record([event(kind: 'goal_withdraw', amountCents: cents, goalId: g.id, reason: 'planned', note: 'Back to spare money')]);
   }
 
   /// Removes one category boost (extra budget) without touching anything else.
