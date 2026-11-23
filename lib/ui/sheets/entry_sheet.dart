@@ -97,7 +97,7 @@ class _EntrySheetState extends State<EntrySheet> {
     app.record([e], trigger: trigger, also: [?tripEntry]);
     final nav = Navigator.of(context);
     nav.pop();
-    if (proposal != null && proposal.lines.any((l) => l.kind == TargetKind.goal)) {
+    if (proposal != null && proposal.lines.any((l) => l.kind != TargetKind.unallocated)) {
       sheet(nav.context, AllocationSheet(title: 'Split your paycheck', amount: cents, groupId: group, date: date, suggested: proposal));
     }
   }

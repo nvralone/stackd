@@ -241,6 +241,18 @@ class AppState extends ChangeNotifier {
     record([reversed.replacement(newId: newId(), note: reversed.note)]);
   }
 
+  /// Clears all money activity (as reversals, so history stays) but keeps accounts, bills, goals and
+  /// budgets. With [keepSavings], money already put in vaults stays saved.
+  void startFresh({bool keepSavings = true}) {
+    final undo = data.ledger.active
+        .where((e) => !(keepSavings && (e.kind == 'goal_deposit' || e.kind == 'goal_withdraw')))
+        .toList();
+    record([for (final e in undo) _reversalOf(e, 'Fresh start')], also: [
+      for (final a in data.budgetAllocations) a..deleted = true,
+      for (final o in data.overrides.where((o) => o.setAside)) o..setAside = false,
+    ]);
+  }
+
   /// Removes one category boost (extra budget) without touching anything else.
   void removeBoost(BudgetAllocation a) => deleteItems([a]);
 

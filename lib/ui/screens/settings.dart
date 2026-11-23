@@ -244,6 +244,28 @@ class _DataPanel extends StatelessWidget {
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Scaffold(body: AuthScreen()))),
           ),
         ListTile(
+          leading: const Icon(Icons.restart_alt_rounded),
+          title: const Text('Start fresh'),
+          subtitle: const Text('Clear all money activity. Keeps accounts, bills, goals and budgets.'),
+          onTap: () async {
+            final choice = await showDialog<String>(
+              context: context,
+              builder: (c) => AlertDialog(
+                title: const Text('Start fresh?'),
+                content: const Text('Every transaction, payment and split is undone (kept in history, not counted). '
+                    'Accounts, bills, goals and budgets stay. Afterwards, use "Set the money I have" on Home.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+                  TextButton(onPressed: () => Navigator.pop(c, 'all'), child: const Text('Clear savings too')),
+                  FilledButton(onPressed: () => Navigator.pop(c, 'keep'), child: const Text('Keep my vault savings')),
+                ],
+              ),
+            );
+            if (choice == null) return;
+            app.startFresh(keepSavings: choice == 'keep');
+            if (context.mounted) context.toast('Fresh start. Now set the money you have on Home.');
+          },
+        ),        ListTile(
           leading: const Icon(Icons.download_rounded),
           title: const Text('Export my data (JSON)'),
           onTap: () async {

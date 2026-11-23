@@ -169,6 +169,8 @@ class _AllocationSheetState extends State<AllocationSheet> {
             onChanged: (v) => setState(() => singleTarget = v),
           )
         else ...[
+          Text('Tap any amount to change it, or X to remove a line.', style: context.tt.bodySmall),
+          const SizedBox(height: 8),
           for (final l in lines)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -177,6 +179,7 @@ class _AllocationSheetState extends State<AllocationSheet> {
                   TargetKind.goal => Icons.savings_rounded,
                   TargetKind.category => Icons.pie_chart_rounded,
                   TargetKind.bills => Icons.event_note_rounded,
+                  TargetKind.covered => Icons.shopping_basket_rounded,
                   TargetKind.unallocated => Icons.account_balance_wallet_rounded,
                 }, color: switch (l.kind) { TargetKind.goal => Accents.savings, TargetKind.bills => Accents.warn, _ => null }),
                 const SizedBox(width: 10),
@@ -200,6 +203,8 @@ class _AllocationSheetState extends State<AllocationSheet> {
           const Expanded(child: Text('Unallocated / spending money')),
           Money(leftover, color: leftover < 0 ? Accents.danger : null),
         ]),
+        if (eff.any((l) => l.kind == TargetKind.covered))
+          Text('Budget lines keep money for those budgets this week (no extra boost is added).', style: context.tt.bodySmall),
         if (eff.any((l) => l.kind == TargetKind.bills)) ...[
           Text('"Keep for bills" stays in your accounts and covers these bills before payday:', style: context.tt.bodySmall),
           for (final o in data.upcomingBills(days: data.daysUntilHorizon).where((o) => !o.bill.incoming))

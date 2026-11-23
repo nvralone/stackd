@@ -3,7 +3,8 @@ import '../core/money.dart';
 import 'finance.dart';
 import 'plan.dart';
 
-enum TargetKind { goal, category, bills, unallocated }
+/// goal = vault deposit; category = extra budget boost; bills / covered (an existing budget) / unallocated = money stays put.
+enum TargetKind { goal, category, bills, covered, unallocated }
 
 class AllocationLine {
   final TargetKind kind;
@@ -29,14 +30,35 @@ int billShortfall(FinanceData f) {
   return (f.reservedForBills - free).clamp(0, f.reservedForBills);
 }
 
-/// Paycheck: bills shortfall, then each goal's planned payday contribution, rest is spending money.
+/// Paycheck split, in order of what can't be missed:
+/// 1. bills due before the next payday,
+/// 2. this period's budgets (essentials first: food, gas...), so the week is actually funded,
+/// 3. each savings goal's planned contribution (scaled down if money runs short),
+/// 4. whatever is left is free money.
+/// Money you already had covers bills and budgets first, so the paycheck only fills the gap.
+/// Computed BEFORE the paycheck is recorded.
 Proposal suggestPaycheck(FinanceData f, int amount) {
   final lines = <AllocationLine>[];
   var left = amount;
-  final bills = billShortfall(f).clamp(0, left);
-  if (bills > 0) {
-    lines.add(AllocationLine(TargetKind.bills, null, 'Keep for upcoming bills', bills));
-    left -= bills;
+  var pool = (f.totalMoney - f.totalSaved).clamp(0, 1 << 40); // money you already have outside vaults
+
+  final billsNeed = (f.reservedForBills - pool).clamp(0, left);
+  pool = (pool - f.reservedForBills).clamp(0, 1 << 40);
+  if (billsNeed > 0) {
+    lines.add(AllocationLine(TargetKind.bills, null, 'Keep for upcoming bills', billsNeed));
+    left -= billsNeed;
+  }
+
+  final budgets = f.categoryStatuses.where((s) => s.hasLimit && s.remaining > 0).toList()
+    ..sort((a, b) => (b.category.essential ? 1 : 0) - (a.category.essential ? 1 : 0));
+  for (final s in budgets) {
+    final fromPool = s.remaining.clamp(0, pool);
+    pool -= fromPool;
+    final need = (s.remaining - fromPool).clamp(0, left);
+    if (need > 0) {
+      lines.add(AllocationLine(TargetKind.covered, s.category.id, '${s.category.name} budget (${s.category.period == 'monthly' ? 'this month' : 'this week'})', need));
+      left -= need;
+    }
   }
   final wants = [
     for (final s in f.goalStatuses)
@@ -49,7 +71,7 @@ Proposal suggestPaycheck(FinanceData f, int amount) {
     if (shares[i] > 0) lines.add(AllocationLine(TargetKind.goal, wants[i].$1.goal.id, wants[i].$1.goal.name, shares[i]));
     left -= shares[i];
   }
-  if (left > 0) lines.add(AllocationLine(TargetKind.unallocated, null, 'Spending money', left));
+  if (left > 0) lines.add(AllocationLine(TargetKind.unallocated, null, 'Free money (no job yet)', left));
   return Proposal(amount, lines);
 }
 
