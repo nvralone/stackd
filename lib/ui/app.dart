@@ -175,7 +175,7 @@ class SideNav extends StatelessWidget {
           SizedBox(
             height: 120,
             child: Stack(fit: StackFit.expand, children: [
-              NightScene(tint: cs.primary),
+              NightScene(tint: cs.primary, phone: true),
               const Positioned(left: 12, bottom: 6, child: CloverSprite(mood: CloverMood.sleepy, size: 52)),
             ]),
           ),

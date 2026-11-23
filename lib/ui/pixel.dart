@@ -217,53 +217,120 @@ class PixelBorder extends ShapeBorder {
 }
 
 /// Pixel night scene (stars, moon, hills) used behind hero cards. Purely decorative.
+/// Two hand-made versions: a small one for phones and a wider one with trees for PC / tablet.
+/// Everything is drawn in fixed-size pixels anchored to the bottom-right corner, so it never stretches
+/// with the card's height.
 class NightScene extends StatelessWidget {
   final Color tint;
-  const NightScene({super.key, required this.tint});
+  /// null = pick by screen width (phone under 600 px wide).
+  final bool? phone;
+  const NightScene({super.key, required this.tint, this.phone});
   @override
-  Widget build(BuildContext context) => CustomPaint(painter: _NightPainter(tint), size: Size.infinite);
+  Widget build(BuildContext context) =>
+      CustomPaint(painter: _NightPainter(tint, phone ?? MediaQuery.sizeOf(context).width < 600), size: Size.infinite);
 }
+
+/// 13x13 crescent moon: '#' light, '+' crater, ' ' empty.
+const _moon = [
+  '     ###     ',
+  '   ####      ',
+  '  ##+#       ',
+  ' #####       ',
+  ' #####       ',
+  '###+##       ',
+  '######       ',
+  '#######      ',
+  ' ##+####     ',
+  ' ########### ',
+  '  ####+####  ',
+  '   #######   ',
+  '     ###     ',
+];
+
+/// 5x9 pine tree.
+const _tree = [
+  '  #  ',
+  '  #  ',
+  ' ### ',
+  ' ### ',
+  '#####',
+  ' ### ',
+  '#####',
+  '#####',
+  '  #  ',
+];
 
 class _NightPainter extends CustomPainter {
   final Color tint;
-  _NightPainter(this.tint);
+  final bool phone;
+  _NightPainter(this.tint, this.phone);
+
   @override
   void paint(Canvas canvas, Size s) {
-    final px = max(3.0, s.height / 40);
-    final rng = Random(4);
-    final star = Paint()..color = Colors.white.withValues(alpha: 0.55);
-    for (var i = 0; i < 26; i++) {
-      final x = s.width * (0.55 + rng.nextDouble() * 0.45);
-      final y = s.height * rng.nextDouble() * 0.6;
-      canvas.drawRect(Rect.fromLTWH((x / px).floorToDouble() * px, (y / px).floorToDouble() * px, px * 0.7, px * 0.7), star);
+    final px = phone ? 3.0 : 4.0;
+    // small boxes (side menu, card corners) use their whole width
+    final areaW = s.width < 260 ? s.width : min(s.width * (phone ? 0.5 : 0.42), phone ? 170.0 : 420.0);
+    final left = s.width - areaW;
+    void dot(double x, double y, Paint p, [double w = 1, double h = 1]) =>
+        canvas.drawRect(Rect.fromLTWH(left + x * px, y * px, w * px, h * px), p);
+
+    // stars: fixed spots in the scene's area (grid units)
+    final cols = (areaW / px).floor();
+    final rows = (s.height / px).floor();
+    final star = Paint()..color = Colors.white.withValues(alpha: 0.6);
+    final dim = Paint()..color = Colors.white.withValues(alpha: 0.3);
+    final rng = Random(7);
+    for (var i = 0; i < (phone ? 9 : 22); i++) {
+      final x = rng.nextInt(max(1, cols - 2)).toDouble();
+      final y = rng.nextInt(max(1, (rows * 0.55).floor())).toDouble();
+      dot(x, y, i % 3 == 0 ? star : dim);
     }
-    // moon: pixelated disc
-    final mc = Offset(s.width * 0.86, s.height * 0.3);
-    final mr = min(s.height * 0.14, 36.0);
-    final moon = Paint()..color = const Color(0xFFE9DDFF).withValues(alpha: 0.85);
-    for (var y = -mr; y <= mr; y += px) {
-      for (var x = -mr; x <= mr; x += px) {
-        if (x * x + y * y <= mr * mr) canvas.drawRect(Rect.fromLTWH(mc.dx + x, mc.dy + y, px, px), moon);
-      }
-    }
-    // hills: two stepped layers
-    void hills(double base, double amp, double freq, double phase, Color c) {
-      final p = Paint()..color = c;
-      for (var x = s.width * 0.6; x < s.width; x += px) {
-        final h = base + amp * sin(x / s.width * freq + phase);
-        final top = (s.height - h) / px * px;
-        canvas.drawRect(Rect.fromLTWH(x, (top / px).floorToDouble() * px, px + 0.5, s.height), p);
+
+    // moon sprite, top-right
+    final light = Paint()..color = const Color(0xFFEDE3FF).withValues(alpha: 0.9);
+    final shade = Paint()..color = const Color(0xFFC9B8F0).withValues(alpha: 0.9);
+    final mx = cols - 13 - (phone ? 3 : 5);
+    final my = phone ? 3 : 4;
+    for (var r = 0; r < _moon.length; r++) {
+      for (var c = 0; c < _moon[r].length; c++) {
+        final ch = _moon[r][c];
+        if (ch != ' ') dot((mx + c).toDouble(), (my + r).toDouble(), ch == '+' ? shade : light);
       }
     }
 
-    hills(s.height * 0.26, s.height * 0.08, 9, 1, tint.withValues(alpha: 0.22));
-    hills(s.height * 0.15, s.height * 0.05, 14, 3, tint.withValues(alpha: 0.38));
+    // hills: hand-shaped heights (grid units from the bottom), back layer then front layer
+    void hills(List<int> shape, Color c) {
+      final p = Paint()..color = c;
+      final step = cols / shape.length;
+      for (var x = 0; x < cols; x++) {
+        final h = shape[min(shape.length - 1, (x / step).floor())];
+        canvas.drawRect(Rect.fromLTWH(left + x * px, s.height - h * px, px, h * px), p);
+      }
+    }
+
+    if (phone) {
+      hills(const [5, 6, 7, 8, 8, 9, 9, 8, 7, 7, 6, 6], tint.withValues(alpha: 0.22));
+      hills(const [2, 3, 3, 4, 4, 5, 5, 4, 4, 3, 3, 4], tint.withValues(alpha: 0.4));
+    } else {
+      hills(const [6, 8, 10, 12, 13, 14, 13, 12, 10, 9, 10, 12, 14, 15, 15, 14, 12, 10], tint.withValues(alpha: 0.2));
+      hills(const [3, 4, 5, 6, 6, 7, 7, 6, 5, 5, 6, 7, 8, 8, 7, 6, 5, 5], tint.withValues(alpha: 0.38));
+      // a few pine trees on the front hills
+      final tp = Paint()..color = tint.withValues(alpha: 0.55);
+      for (final fx in const [0.12, 0.2, 0.62, 0.7, 0.86]) {
+        final tx = (cols * fx).floorToDouble();
+        final base = rows - 6;
+        for (var r = 0; r < _tree.length; r++) {
+          for (var c = 0; c < 5; c++) {
+            if (_tree[r][c] == '#') dot(tx + c, (base - _tree.length + r).toDouble(), tp);
+          }
+        }
+      }
+    }
   }
 
   @override
-  bool shouldRepaint(_NightPainter o) => o.tint != tint;
+  bool shouldRepaint(_NightPainter o) => o.tint != tint || o.phone != phone;
 }
-
 /// The STACKD logo: pixel letters with a little crown.
 class StackdLogo extends StatelessWidget {
   final double size;

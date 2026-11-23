@@ -164,7 +164,7 @@ class GoalCard extends StatelessWidget {
                 bottom: 0,
                 width: 160,
                 child: ExcludeSemantics(
-                  child: Opacity(opacity: 0.55, child: NightScene(tint: color)),
+                  child: Opacity(opacity: 0.55, child: NightScene(tint: color, phone: true)),
                 ),
               ),
             Padding(
@@ -663,12 +663,12 @@ class TripCard extends StatelessWidget {
               ),
             ),
             const Positioned(
-              right: 0,
+              right: 52, // keep clear of the ⋮ menu
               top: 0,
               bottom: 0,
               width: 220,
               child: ExcludeSemantics(
-                child: Opacity(opacity: 0.7, child: NightScene(tint: Accents.vacationBlue)),
+                child: Opacity(opacity: 0.7, child: NightScene(tint: Accents.vacationBlue, phone: true)),
               ),
             ),
             Padding(
