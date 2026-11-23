@@ -7,6 +7,17 @@
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // Only one STACKD at a time: two copies would write to the same local database.
+  // A second launch just brings the open window to the front.
+  ::CreateMutexW(nullptr, TRUE, L"Local\\STACKD_single_instance");
+  if (::GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (HWND existing = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"STACKD")) {
+      ::ShowWindow(existing, SW_RESTORE);
+      ::SetForegroundWindow(existing);
+    }
+    return EXIT_SUCCESS;
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {

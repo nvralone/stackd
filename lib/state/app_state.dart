@@ -73,6 +73,7 @@ class AppState extends ChangeNotifier {
     app = AppState(db, sync: sync, notifier: notifier, voice: CloverVoice());
     if (sync != null && sync.uid != null) sync.start();
     app._scheduleNotifications();
+    app._prepareVoice();
     return app;
   }
 
@@ -120,7 +121,16 @@ class AppState extends ChangeNotifier {
   void _afterSync() {
     reload();
     cloverNow = brain.home(data); // keep Clover's message in step with freshly synced numbers
+    _prepareVoice();
     notifyListeners();
+  }
+
+  /// Character voice: make the current Home line ahead of time so replay plays instantly.
+  void _prepareVoice() {
+    final s = cloverNow;
+    final p = prefs;
+    if (s == null || p.voiceStyle != 'clover' || p.silent) return;
+    voice?.prepare(s.text, s.mood, VoiceStyle(sid: p.voiceSid, pitch: p.voicePitch));
   }
 
   void _scheduleNotifications() {
@@ -337,6 +347,7 @@ class AppState extends ChangeNotifier {
     final s = brain.home(data);
     _remember(s);
     cloverNow = s;
+    _prepareVoice();
     notifyListeners();
   }
 

@@ -212,13 +212,15 @@ class CloverVoice {
     final token = ++_seq;
     final kokoro = KokoroVoice.instance;
     if (!await kokoro.installed) return talk(text, mood, volume: volume);
-    final s = VoiceStyle(sid: style.sid, pitch: style.pitch * (1 + (mood.pitch - 1) * 0.25), speed: style.speed);
+    final s = _moodStyle(style, mood);
     try {
       await _tts.stop();
       await _player.stop();
       onTalking?.call(true);
-      final dir = Directory('${(await getTemporaryDirectory()).path}/clover_voice');
-      final cached = File('${dir.path}/${s.sid}_${s.pitch.toStringAsFixed(3)}_${_hash(text)}.wav');
+      if (_preparing == text && _prepareJob != null) await _prepareJob; // being made right now: wait, then play it
+      if (token != _seq) return;
+      final cached = await _cacheFile(text, s);
+      final dir = cached.parent;
       if (cached.existsSync()) {
         await _playWait(await cached.readAsBytes(), volume, 'line', token);
         return;
@@ -235,10 +237,47 @@ class CloverVoice {
         await dir.create(recursive: true);
         await cached.writeAsBytes(joinWavs(clips));
       }
-    } catch (_) {
+    } catch (e, st) {
+      await _log('character voice failed for "$text": $e\n$st');
       if (token == _seq) await talk(text, mood, volume: volume);
     } finally {
       if (token == _seq) onTalking?.call(false);
+    }
+  }
+
+  static VoiceStyle _moodStyle(VoiceStyle style, CloverMood mood) =>
+      VoiceStyle(sid: style.sid, pitch: style.pitch * (1 + (mood.pitch - 1) * 0.25), speed: style.speed);
+
+  static Future<File> _cacheFile(String text, VoiceStyle s) async =>
+      File('${(await getTemporaryDirectory()).path}/clover_voice/${s.sid}_${s.pitch.toStringAsFixed(3)}_${_hash(text)}.wav');
+
+  String? _preparing;
+  Future<void>? _prepareJob;
+
+  /// Makes a line ahead of time (in the background, without playing it) so tapping replay is instant.
+  /// Also warms up the voice engine. Does nothing if the voice isn't installed.
+  Future<void> prepare(String text, CloverMood mood, VoiceStyle style) {
+    if (_preparing == text && _prepareJob != null) return _prepareJob!;
+    return _prepareJob = _prepare(text, mood, style);
+  }
+
+  Future<void> _prepare(String text, CloverMood mood, VoiceStyle style) async {
+    try {
+      final kokoro = KokoroVoice.instance;
+      if (!await kokoro.installed) return;
+      final s = _moodStyle(style, mood);
+      final cached = await _cacheFile(text, s);
+      if (cached.existsSync()) return;
+      _preparing = text;
+      final clips = await kokoro.speak(text, s).toList();
+      if (clips.isNotEmpty) {
+        await cached.parent.create(recursive: true);
+        await cached.writeAsBytes(joinWavs(clips));
+      }
+    } catch (e) {
+      await _log('prepare failed: $e');
+    } finally {
+      if (_preparing == text) _preparing = null;
     }
   }
 
@@ -249,7 +288,16 @@ class CloverVoice {
     final ms = rate == 0 ? 0 : (wav.length - 44) * 1000 ~/ (rate * 2);
     final done = _player.onPlayerComplete.first;
     await _play(wav, volume, name);
-    await done.timeout(Duration(milliseconds: ms + 1500), onTimeout: () {});
+    // (onPlayerComplete is typed per platform; map it to void so the timeout fallback type-checks)
+    await done.then<void>((_) {}).timeout(Duration(milliseconds: ms + 1500), onTimeout: () {});
+  }
+
+  /// Appends to voice.log in the app's support folder (for diagnosing voice problems).
+  static Future<void> _log(String msg) async {
+    try {
+      final f = File('${(await getApplicationSupportDirectory()).path}/voice.log');
+      await f.writeAsString('${DateTime.now().toIso8601String()} $msg\n', mode: FileMode.append);
+    } catch (_) {}
   }
 
   static String _hash(String s) {
