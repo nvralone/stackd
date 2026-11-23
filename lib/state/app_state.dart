@@ -130,7 +130,7 @@ class AppState extends ChangeNotifier {
     final s = cloverNow;
     final p = prefs;
     if (s == null || p.voiceStyle != 'clover' || p.silent) return;
-    voice?.prepare(s.text, s.mood, VoiceStyle(sid: p.voiceSid, pitch: p.voicePitch));
+    voice?.prepare(s.text, s.mood, VoiceStyle(sid: cloverSid, pitch: p.voicePitch));
   }
 
   void _scheduleNotifications() {
@@ -365,7 +365,7 @@ class AppState extends ChangeNotifier {
     if (p.voiceStyle == 'babble' && !narrate) {
       voice?.babble(s.text, s.mood, volume: p.voiceVolume);
     } else if (p.voiceStyle == 'clover') {
-      voice?.character(s.text, s.mood, volume: p.voiceVolume, style: VoiceStyle(sid: p.voiceSid, pitch: p.voicePitch));
+      voice?.character(s.text, s.mood, volume: p.voiceVolume, style: VoiceStyle(sid: cloverSid, pitch: p.voicePitch));
     } else {
       voice?.talk(s.text, s.mood, volume: p.voiceVolume, chirp: !narrate);
     }

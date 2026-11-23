@@ -307,8 +307,7 @@ class Prefs extends Entity {
   bool get useTts => clover['tts'] != false;
   /// 'talk' = says the words in a goofy pitched voice; 'babble' = cartoon gibberish.
   String get voiceStyle => clover['voice'] as String? ?? 'talk'; // talk | clover | babble
-  /// Character voice (offline Kokoro): speaker id and pitch raise.
-  int get voiceSid => _i(clover['voice_sid']) ?? 18;
+  /// Character voice (offline Kokoro): pitch raise.
   double get voicePitch => (clover['voice_pitch'] as num?)?.toDouble() ?? 1.18;
   String get frequency => clover['frequency'] as String? ?? 'normal'; // low | normal | high
   /// Chaotic and Savage Clover may swear (never Friendly). Off = clean lines only.

@@ -510,17 +510,9 @@ class _CloverVoicePanelState extends State<CloverVoicePanel> {
         ]),
       );
     }
-    final sid = cloverVoices.values.contains(p.voiceSid) ? p.voiceSid : 18;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        DropdownButtonFormField<int>(
-          isExpanded: true,
-          initialValue: sid,
-          decoration: const InputDecoration(labelText: 'Voice'),
-          items: [for (final e in cloverVoices.entries) DropdownMenuItem(value: e.value, child: Text(e.key))],
-          onChanged: (v) => set('voice_sid', v!),
-        ),
         Row(children: [
           const Text('Pitch'),
           Expanded(

@@ -23,15 +23,8 @@ bool _keep(String name) {
   return n == 'model.int8.onnx' || n == 'voices.bin' || n == 'tokens.txt' || n == 'lexicon-us-en.txt' || n == 'LICENSE';
 }
 
-/// Voices that suit a small, mischievous raccoon (speaker ids from the model's own table).
-const cloverVoices = <String, int>{
-  'Puck (default)': 18,
-  'Liam': 15,
-  'Echo': 12,
-  'Fable (British)': 25,
-  'Sky': 10,
-  'Nicole (soft)': 6,
-};
+/// Clover's voice: Kokoro speaker "am_puck" (id from the model's own table). Only this one is tuned for him.
+const cloverSid = 18;
 
 so.OfflineTtsConfig kokoroConfig(String dir) => so.OfflineTtsConfig(
       model: so.OfflineTtsModelConfig(
