@@ -164,7 +164,7 @@ class SideNav extends StatelessWidget {
           if (full)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Image.asset('assets/brand/stakd_logo.png', width: 200, filterQuality: FilterQuality.medium, semanticLabel: 'STAKD'),
+              child: Image.asset('assets/brand/stakd_logo.png', width: 140, filterQuality: FilterQuality.medium, semanticLabel: 'STAKD'),
             )
           else
             Image.asset('assets/clover/clover_base.png', width: 44, filterQuality: FilterQuality.none),
