@@ -233,7 +233,7 @@ class _PayBillState extends State<PayBill> {
   late final amount = TextEditingController(text: centsToInput(widget.o.remainingCents));
   final String eventId = newId();
   late String? account = widget.o.bill.accountId ?? context.appRead.data.accounts.where((a) => !a.archived).firstOrNull?.id;
-  DateTime date = today();
+  late DateTime date = context.appRead.data.todayDate;
 
   @override
   Widget build(BuildContext context) {

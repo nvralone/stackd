@@ -2,7 +2,6 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../clover/brain.dart';
-import '../../core/dates.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../data/models.dart';
@@ -43,7 +42,7 @@ class _EntrySheetState extends State<EntrySheet> {
   late String? category = widget.editing?.categoryId ?? widget.categoryId;
   late String source = widget.editing?.incomeSource ?? 'paycheck';
   late String? trip = widget.editing?.tripId ?? widget.tripId;
-  late DateTime date = widget.editing?.occurredOn ?? today();
+  late DateTime date = widget.editing?.occurredOn ?? context.appRead.data.todayDate;
   bool adjustUp = true;
   bool saving = false;
 
@@ -218,7 +217,7 @@ class _ExtraMoneySheetState extends State<ExtraMoneySheet> {
   final String eventId = newId(), group = newId();
   String source = 'sale';
   String? account, category;
-  DateTime date = today();
+  late DateTime date = context.appRead.data.todayDate;
 
   static const sources = ['sale', 'side_job', 'tip', 'gift', 'refund', 'other'];
 

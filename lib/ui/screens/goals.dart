@@ -215,7 +215,7 @@ class _MoveMoneyState extends State<MoveMoney> {
   final amount = TextEditingController(), note = TextEditingController(), lockText = TextEditingController();
   final String eventId = newId();
   String reason = 'planned';
-  DateTime date = today();
+  late DateTime date = context.appRead.data.todayDate;
 
   Future<void> save() async {
     if (!form.currentState!.validate()) return;
@@ -742,7 +742,7 @@ class _TripExpenseState extends State<TripExpense> {
   final amount = TextEditingController(), note = TextEditingController();
   final String eventId = newId();
   String? account, item, category;
-  DateTime date = today();
+  late DateTime date = context.appRead.data.todayDate;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
