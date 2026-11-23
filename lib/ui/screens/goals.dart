@@ -215,6 +215,7 @@ class _MoveMoneyState extends State<MoveMoney> {
   final amount = TextEditingController(), note = TextEditingController(), lockText = TextEditingController();
   final String eventId = newId();
   String reason = 'planned';
+  bool newCash = false; // deposit of cash the app doesn't know about yet
   late DateTime date = context.appRead.data.todayDate;
 
   Future<void> save() async {
@@ -228,15 +229,20 @@ class _MoveMoneyState extends State<MoveMoney> {
       if (g.locked && lockText.text.trim().toUpperCase() != 'UNLOCK') {
         return context.toast('Type UNLOCK to withdraw from a locked vault.');
       }
-    } else if (cents > app.data.availableToSpend && !await confirm(context, 'More than your free money',
-        'This deposit is larger than your safe-to-spend amount (${m(app.data.availableToSpend)}). Save anyway?')) {
+    } else if (!newCash && cents > app.data.availableToSpend && !await confirm(context, 'More than your spare money',
+        'This is more than your spare money (${m(app.data.availableToSpend)}). If it is cash the app does not know about yet, tick "New cash". Save anyway?')) {
       return;
     }
     final e = app.event(
         id: eventId, kind: widget.deposit ? 'goal_deposit' : 'goal_withdraw', amountCents: cents, goalId: g.id, on: date,
         reason: widget.deposit ? null : reason, note: note.text);
     final shared = g.tripId != null && (app.data.trip(g.tripId)?.shared ?? false);
-    app.record([e], trigger: GoalMoved(e), also: [
+    final cashAcct = app.data.accounts.where((a) => !a.archived).firstOrNull;
+    app.record([
+      if (widget.deposit && newCash && cashAcct != null)
+        app.event(kind: 'adjustment', amountCents: cents, accountId: cashAcct.id, on: date, groupId: eventId, note: 'Cash for ${g.name}'),
+      e,
+    ], trigger: GoalMoved(e), also: [
       if (shared)
         TripEntry(id: newId(), tripId: g.tripId!, kind: widget.deposit ? 'contribution' : 'withdrawal', amountCents: cents, occurredOn: date, ledgerEventId: e.id),
     ]);
@@ -271,6 +277,14 @@ class _MoveMoneyState extends State<MoveMoney> {
             ],
             const SizedBox(height: 12),
             DateField(value: date, onChanged: (d) => setState(() => date = d!)),
+            if (widget.deposit)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: newCash,
+                onChanged: (v) => setState(() => newCash = v!),
+                title: const Text('New cash (not in the app yet)'),
+                subtitle: Text(newCash ? 'Adds to your total money; spare money stays the same.' : 'Off: comes out of your spare money.'),
+              ),
             const SizedBox(height: 12),
             TextField(controller: note, decoration: const InputDecoration(labelText: 'Note (optional)')),
             const SizedBox(height: 16),

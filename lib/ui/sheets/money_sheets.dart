@@ -172,32 +172,57 @@ class _GiveJobSheetState extends State<GiveJobSheet> {
   }
 }
 
+/// Add money to a budget. Asks where it comes from, because those are different things:
+/// - from spare money: the money is already counted, it just gets this job (spare goes down);
+/// - new cash: money you have that the app doesn't know about yet (total goes up, spare stays the same).
 Future<void> addToBudget(BuildContext context, Category c) async {
   final app = context.appRead;
   final ctl = TextEditingController();
-  final ok = await showDialog<bool>(
+  final accts = app.data.accounts.where((a) => !a.archived).toList();
+  String? account = accts.firstOrNull?.id;
+  final choice = await showDialog<String>(
     context: context,
-    builder: (x) => AlertDialog(
-      title: Text('Add money to ${c.name}'),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('Raises ${c.name}\'s budget for this ${c.period == 'monthly' ? 'month' : 'week'} only. No money moves between accounts.'),
-        const SizedBox(height: 10),
-        TextField(controller: ctl, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Amount', prefixText: '\$ ')),
-      ]),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(x, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(x, true), child: const Text('Add')),
-      ],
+    builder: (x) => StatefulBuilder(
+      builder: (x, set) => AlertDialog(
+        title: Text('Add money to ${c.name}'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('For this ${c.period == 'monthly' ? 'month' : 'week'} only. Spare money right now: ${m(app.data.availableToSpend)}.'),
+          const SizedBox(height: 10),
+          TextField(controller: ctl, autofocus: true, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Amount', prefixText: '\$ ')),
+          if (accts.length > 1) ...[
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: account,
+              decoration: const InputDecoration(labelText: 'If it is new cash, where is it?'),
+              items: [for (final a in accts) DropdownMenuItem(value: a.id, child: Text(a.name))],
+              onChanged: (v) => set(() => account = v),
+            ),
+          ],
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(x), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(x, 'spare'), child: const Text('From my spare money')),
+          FilledButton(onPressed: () => Navigator.pop(x, 'new'), child: const Text('New cash I have')),
+        ],
+      ),
     ),
   );
   final cents = (parseCents(ctl.text) ?? 0).abs();
-  if (ok != true || cents == 0) return;
-  app.save(BudgetAllocation(
+  if (choice == null || cents == 0) return;
+  final boost = BudgetAllocation(
       id: newId(), categoryId: c.id, periodStart: periodOf(app.data.todayDate, c.period, app.prefs.weekStart).start,
-      amountCents: cents, note: 'Added by hand'));
+      amountCents: cents, note: choice == 'new' ? 'New cash' : 'From spare money');
+  if (choice == 'new' && account != null) {
+    app.record([app.event(kind: 'adjustment', amountCents: cents, accountId: account, note: 'Cash for ${c.name}')], also: [boost]);
+  } else {
+    app.save(boost);
+  }
+  if (context.mounted) {
+    context.toast(choice == 'new' ? 'Added ${m(cents)} cash to ${c.name}. Spare money unchanged.' : 'Moved ${m(cents)} of spare money into ${c.name}.');
+  }
 }
-
 /// Home card: every budget with what's left, per-day pace, and quick buttons.
 class BudgetsCard extends StatelessWidget {
   const BudgetsCard({super.key});
