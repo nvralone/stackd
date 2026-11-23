@@ -61,6 +61,14 @@ Unique (`bill_id`, `occurrence`) · `due_on` (reschedule) · `skipped`.
 `kind` (see ARCHITECTURE) · `occurred_on` · `amount_cents` (≠0; >0 except opening/adjustment) · `account_id` · `to_account_id` (transfer, ≠ account) · `category_id` · `goal_id` · `bill_id` + `bill_occurrence` · `trip_id` · `income_source` paycheck/side_job/tip/gift/sale/loan/other · `reason` planned/emergency/other · `group_id` · `reverses_id` (unique: one reversal per event) · `replaces_id` · `note` ≤500 · `device_id`.
 Constraints enforce: transfers have two distinct accounts; goal events have a goal; reversals point at an event; money-moving kinds have an account; references belong to the same user (trigger).
 
+**Bill envelope earmarks (no schema change).** A `goal_deposit` into the "Bill savings" vault with
+`bill_id` set is money set aside for that bill; a `goal_withdraw` with `bill_id` is money used for it.
+Per bill: running total, never below 0. Envelope deposits without `bill_id` are *unassigned* and are
+never assigned to a bill unless the user turns on "Use unassigned Bill savings" in a paycheck split
+(that records a withdraw-unassigned + deposit-for-bill pair; the envelope total does not change).
+If money is taken back out so the envelope holds less than all earmarks, bills due last lose theirs first.
+`bill_id` on goal events never counts as a bill payment (`paidFor` only counts `bill_payment` / `loan_in`).
+
 ### clover_events
 `topic`, `line_id`, `mood` — reserved for cross-device anti-repeat.
 

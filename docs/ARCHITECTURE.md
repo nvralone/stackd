@@ -57,6 +57,17 @@ Domain code never touches Flutter or storage, so every financial rule is unit-te
 7. **Nothing is auto-committed.** Paycheck / Extra Money proposals (`allocation.dart`) are pure functions; the allocation sheet writes only after an explicit confirm dialog.
 8. **Idempotency.** Every write carries a client UUID generated when the form opens. Local inserts are `INSERT OR IGNORE`; cloud inserts are `upsert(ignoreDuplicates)` — double taps and sync retries cannot duplicate money.
 
+## Paycheck distribution (lib/domain/allocation.dart)
+`billNeeds(f)` looks only at existing bills:
+- Due before the next payday: everything unpaid, minus envelope money for that bill, minus money already
+  in accounts (soonest first). `reservedForBills` subtracts the same envelope money, so nothing is held twice.
+- Less frequent than paydays and due later (within ~3 months): share = still needed when this pay period
+  began / paychecks left (regular paydays from today's pay period up to, not including, the due date),
+  minus what was already added for it since the last payday. Irregular income is never assumed.
+`suggestPaycheck` order: bills before payday, essential budgets, later bills (envelope, tagged per bill),
+other budgets, savings goals, spare. Nothing is written until the user confirms in the split sheet.
+Regression tests: test/bill_distribution_test.dart.
+
 ## Offline sync
 
 - Every local write marks the row `dirty` (the outbox). Writes work with no network.
@@ -91,6 +102,17 @@ Shell destinations (bottom bar on phones < 900 px, `NavigationRail` sidebar on w
 Gate: `AuthScreen` (if cloud configured and not signed in / not local-only) → `OnboardingScreen` (10 steps) → `Shell`.
 
 Shared components (`ui/common.dart`): `Panel`, `Stat`, `Money`, `Bar`, `Section`, `Empty`, `AmountField`, `AccountPicker`, `CategoryPicker`, `DateField`, `ColorChooser`, `confirm()`, `sheet()`, `PageBody`.
+
+## Clover voice
+Three styles: `clover` (character voice), `talk` (device TTS, pitched up), `babble` (gibberish).
+The character voice is Kokoro-82M int8 (Apache-2.0) run on-device via the `sherpa_onnx` package. It is
+downloaded once on request from the sherpa-onnx GitHub release (132 MB; ~148 MB on disk after keeping only
+English files). It runs in a background isolate. `phonemizer.dart` turns text into phonemes with the model's
+US lexicon (numbers, plurals, -ing/-ed, stretched words, sounding out unknown names) because sherpa-onnx 2.x
+skips words not in the lexicon. Pitch is raised by resampling. ALL CAPS = yell (faster, higher, louder);
+`*whispers*` = softer and slower. Sentences play as they're generated; finished lines are cached.
+Honest limit: a general speech model shaped toward a character, not a voice actor. On Windows the app
+ships its own onnxruntime.dll next to the exe (System32 has an older one).
 
 ## Clover
 
