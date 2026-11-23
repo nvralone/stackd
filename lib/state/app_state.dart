@@ -230,7 +230,8 @@ class AppState extends ChangeNotifier {
   /// boosts, and records the new ones, all in one step. The income itself is untouched.
   void replaceSplit(String groupId, List<LedgerEvent> deposits, List<BudgetAllocation> allocs) {
     final oldDeposits = data.ledger.active.where((e) => e.groupId == groupId && e.kind == 'goal_deposit').toList();
-    final oldAllocs = data.budgetAllocations.where((a) => a.groupId == groupId).toList();
+    // budget reductions from a paycheck split (negative) stay; only boosts are replaced
+    final oldAllocs = data.budgetAllocations.where((a) => a.groupId == groupId && a.amountCents > 0).toList();
     record([for (final e in oldDeposits) _reversalOf(e, 'Split edited'), ...deposits],
         also: [for (final a in oldAllocs) a..deleted = true, ...allocs]);
   }

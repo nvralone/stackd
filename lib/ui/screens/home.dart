@@ -63,7 +63,7 @@ class HomeScreen extends StatelessWidget {
             Panel(
               color: context.cs.primary.withValues(alpha: 0.12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('FREE MONEY (NOT ASSIGNED YET)', style: context.tt.labelMedium?.copyWith(letterSpacing: 1.4, fontWeight: FontWeight.w800)),
+                Text('SPARE MONEY (YOURS TO SPEND)', style: context.tt.labelMedium?.copyWith(letterSpacing: 1.4, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
                 FittedBox(
                   fit: BoxFit.scaleDown,
@@ -77,8 +77,25 @@ class HomeScreen extends StatelessWidget {
                   style: context.tt.bodyMedium,
                 ),
                 const SizedBox(height: 6),
-                Text('Total money − vaults − bills due before payday − what\'s left in your budgets.',
+                Text(
+                    '${m(d.totalMoney)} total = ${m(d.totalSaved)} saved + ${m(d.reservedForBills)} bills before payday + '
+                    '${m(d.budgetedRemaining)} in budgets + ${m(d.availableToSpend)} free',
                     style: context.tt.bodySmall?.copyWith(color: context.cs.onSurfaceVariant)),
+                if (d.availableToSpend < 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('You\'re ${m(-d.availableToSpend)} over: lower a budget, take some out of savings, or skip a bill. Tap "Reserved for bills" or a budget below.',
+                        style: const TextStyle(color: Accents.danger, fontWeight: FontWeight.w600)),
+                  ),
+                const SizedBox(height: 8),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  for (final s in d.categoryStatuses.where((s) => s.hasLimit || s.extra != 0))
+                    ActionChip(
+                      avatar: CatDot(s.category, size: 12),
+                      label: Text('${s.category.name} ${m(s.remaining)} left'),
+                      onPressed: () => openQuickAdd(context, categoryId: s.category.id),
+                    ),
+                ]),
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 4, children: [
                   FilledButton.tonalIcon(

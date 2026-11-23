@@ -135,7 +135,7 @@ class CategoryCard extends StatelessWidget {
             Text(
               s.hasLimit
                   ? '${m(s.spent)} of ${m(s.budget)} ${c.period == 'monthly' ? 'this month' : 'this week'}'
-                      '${s.extra != 0 || s.rollover != 0 ? ' (${m(s.limit)} limit${s.extra != 0 ? ' + ${m(s.extra)} from extra money' : ''}${s.rollover != 0 ? ' ${formatCents(s.rollover, showPlus: true)} rollover' : ''})' : ''}'
+                      '${s.extra != 0 || s.rollover != 0 ? ' (${m(s.limit)} limit${s.extra != 0 ? ' ${formatCents(s.extra, showPlus: true)} this ${c.period == 'monthly' ? 'month' : 'week'}' : ''}${s.rollover != 0 ? ' ${formatCents(s.rollover, showPlus: true)} rollover' : ''})' : ''}'
                   : '${m(s.spent)} ${c.period == 'monthly' ? 'this month' : 'this week'} · no limit',
               style: context.tt.bodySmall,
             ),
@@ -202,14 +202,14 @@ class CategoryDetail extends StatelessWidget {
       body: PageBody(children: [
         CategoryCard(d.categoryStatus(c)),
         if (boosts.isNotEmpty) ...[
-          const Section('Extra budget added'),
+          const Section('Changes to this budget'),
           Text('Money from an Extra Money / paycheck split added to this category. Remove it or move it elsewhere.', style: context.tt.bodySmall),
           for (final a in boosts)
             Card(
               margin: const EdgeInsets.only(top: 6),
               child: ListTile(
                 leading: const Icon(Icons.add_card_rounded),
-                title: Text('+${m(a.amountCents)} for the ${c.period == 'monthly' ? 'month' : 'week'} of ${prettyDate(a.periodStart)}'),
+                title: Text('${formatCents(a.amountCents, showPlus: true)} for the ${c.period == 'monthly' ? 'month' : 'week'} of ${prettyDate(a.periodStart)}'),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   if (a.groupId != null)
                     IconButton(tooltip: 'Edit split', icon: const Icon(Icons.call_split_rounded), onPressed: () => openEditSplit(context, a.groupId!)),

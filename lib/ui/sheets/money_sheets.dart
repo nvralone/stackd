@@ -38,7 +38,8 @@ class _CountMoneySheetState extends State<CountMoneySheet> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text('Count my money', style: context.tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text('Type what is really in each place right now: cash in your wallet, envelopes, Cash App, bank. '
+        Text('Only for fixing a balance that is wrong. To add a paycheck or extra money, use Quick Add > Income instead, or it counts twice. '
+            'Type what is really in each place right now: cash in your wallet, envelopes, Cash App, bank. '
             'Money already sitting in an envelope for a vault still counts here (vaults are just labels on it).', style: context.tt.bodySmall),
         const SizedBox(height: 12),
         for (final a in accts)

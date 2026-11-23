@@ -28,9 +28,12 @@ void main() {
     expect(line(TargetKind.covered, 'food'), 12000);
     expect(line(TargetKind.covered, 'gas'), 3000);
     expect(line(TargetKind.covered, 'fun'), 4000);
-    expect(line(TargetKind.goal, 'v'), 3000);
-    expect(line(TargetKind.goal, 'e'), 2000);
-    expect(line(TargetKind.unallocated), 29500 - 5000 - 19000 - 5000);
+    // Nice is every 2 weeks with weekly pay: part of its next payment is saved ahead in Bill savings
+    final billSave = line(TargetKind.billSavings);
+    expect(billSave, greaterThan(0));
+    final leftForGoals = 29500 - 5000 - 19000 - billSave;
+    expect(line(TargetKind.goal, 'v') + line(TargetKind.goal, 'e'), leftForGoals < 5000 ? leftForGoals : 5000);
+    expect(line(TargetKind.goal, 'v'), greaterThan(line(TargetKind.goal, 'e'))); // scaled in proportion 30:20
     expect(p.allocated, 29500);
   });
 

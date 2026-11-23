@@ -1,10 +1,51 @@
 // Allocation proposals for paychecks and extra money. Pure: nothing is committed here.
+import '../core/dates.dart';
 import '../core/money.dart';
+import 'bills.dart' as billing;
 import 'finance.dart';
 import 'plan.dart';
 
-/// goal = vault deposit; category = extra budget boost; bills / covered (an existing budget) / unallocated = money stays put.
-enum TargetKind { goal, category, bills, covered, unallocated }
+/// goal = vault deposit; category = extra budget boost; covered = this period's budget for a category (editing it
+/// changes that budget); billSavings = deposit into the Bill savings vault; bills / unallocated = money stays put.
+enum TargetKind { goal, category, bills, covered, billSavings, unallocated }
+
+/// The vault that holds money set aside for later bills.
+const billSavingsName = 'Bill savings';
+
+int _intervalDays(String freq) => switch (freq) { 'weekly' => 7, 'biweekly' => 14, 'semimonthly' => 15, 'monthly' => 30, 'yearly' => 365, _ => 100000 };
+
+class LaterBill {
+  final String name;
+  final DateTime due;
+  final int amount, perPaycheck;
+  const LaterBill(this.name, this.due, this.amount, this.perPaycheck);
+}
+
+/// Bills due AFTER the next payday (within ~3 months) that come less often than you get paid: monthly
+/// insurance, subscriptions... Each paycheck sets aside an even share so the money is there on the due date.
+List<LaterBill> laterBills(FinanceData f) {
+  final interval = f.paydayIntervalDays;
+  final from = addDays(f.horizonEnd, 1);
+  final until = addDays(f.todayDate, 95);
+  final out = <LaterBill>[];
+  for (final b in f.bills.where((b) => !b.archived && !b.incoming && _intervalDays(b.frequency) > interval)) {
+    final o = billing.occurrences(b, f.ledger, f.overrides, until, now: f.now).where((o) => o.open && !o.due.isBefore(from)).firstOrNull;
+    if (o == null) continue;
+    final paydays = ceilDiv(daysBetween(f.todayDate, o.due), interval).clamp(1, 1000);
+    out.add(LaterBill(b.name, o.due, o.remainingCents, ceilDiv(o.remainingCents, paydays)));
+  }
+  return out..sort((a, b) => a.due.compareTo(b.due));
+}
+
+/// How much this paycheck should add to Bill savings (less whatever is already saved there).
+int billSavingsNeed(FinanceData f) {
+  final later = laterBills(f);
+  final total = later.fold(0, (s, l) => s + l.amount);
+  final per = later.fold(0, (s, l) => s + l.perPaycheck);
+  final g = f.goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
+  final saved = g == null ? 0 : f.ledger.goalBalance(g.id);
+  return per.clamp(0, (total - saved).clamp(0, 1 << 40));
+}
 
 class AllocationLine {
   final TargetKind kind;
@@ -33,8 +74,9 @@ int billShortfall(FinanceData f) {
 /// Paycheck split, in order of what can't be missed:
 /// 1. bills due before the next payday,
 /// 2. this period's budgets (essentials first: food, gas...), so the week is actually funded,
-/// 3. each savings goal's planned contribution (scaled down if money runs short),
-/// 4. whatever is left is free money.
+/// 3. an even share toward later bills (monthly insurance, subscriptions) into Bill savings,
+/// 4. each savings goal's planned contribution (scaled down if money runs short),
+/// 5. whatever is left is free money.
 /// Money you already had covers bills and budgets first, so the paycheck only fills the gap.
 /// Computed BEFORE the paycheck is recorded.
 Proposal suggestPaycheck(FinanceData f, int amount) {
@@ -60,9 +102,14 @@ Proposal suggestPaycheck(FinanceData f, int amount) {
       left -= need;
     }
   }
+  final billSave = billSavingsNeed(f).clamp(0, left);
+  if (billSave > 0) {
+    lines.add(AllocationLine(TargetKind.billSavings, null, 'Save for later bills', billSave));
+    left -= billSave;
+  }
   final wants = [
     for (final s in f.goalStatuses)
-      if (!s.complete && s.goal.contributionCents > 0 && s.goal.contributionFreq != 'none')
+      if (!s.complete && s.goal.name != billSavingsName && s.goal.contributionCents > 0 && s.goal.contributionFreq != 'none')
         (s, s.goal.contributionCents.clamp(0, s.remaining))
   ];
   final totalWant = wants.fold(0, (a, w) => a + w.$2);

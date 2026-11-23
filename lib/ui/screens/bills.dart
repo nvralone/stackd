@@ -5,6 +5,7 @@ import '../../core/dates.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../data/models.dart';
+import '../../domain/allocation.dart';
 import '../../domain/bills.dart';
 import '../app.dart';
 import '../common.dart';
@@ -234,11 +235,14 @@ class _PayBillState extends State<PayBill> {
   final String eventId = newId();
   late String? account = widget.o.bill.accountId ?? context.appRead.data.accounts.where((a) => !a.archived).firstOrNull?.id;
   late DateTime date = context.appRead.data.todayDate;
+  late final SavingsGoal? billVault = context.appRead.data.goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
+  late bool fromSavings = billVault != null && context.appRead.data.ledger.goalBalance(billVault!.id) > 0;
 
   @override
   Widget build(BuildContext context) {
     final o = widget.o;
     final b = o.bill;
+    final saved = billVault == null ? 0 : context.app.data.ledger.goalBalance(billVault!.id);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Form(
@@ -252,6 +256,14 @@ class _PayBillState extends State<PayBill> {
           AccountPicker(value: account, label: b.incoming ? 'Received into' : 'Paid from', onChanged: (v) => setState(() => account = v)),
           const SizedBox(height: 12),
           DateField(value: date, label: 'Paid on', onChanged: (d) => setState(() => date = d!)),
+          if (!b.incoming && saved > 0)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: fromSavings,
+              onChanged: (v) => setState(() => fromSavings = v!),
+              title: const Text('Use my Bill savings'),
+              subtitle: Text('${m(saved)} saved for bills. It comes out of that vault, so your free money stays the same.'),
+            ),
           const SizedBox(height: 16),
           FilledButton(
             onPressed: () async {
@@ -264,8 +276,13 @@ class _PayBillState extends State<PayBill> {
               }
               final e = app.event(
                   id: eventId, kind: b.incoming ? 'loan_in' : 'bill_payment', amountCents: cents, accountId: account,
-                  categoryId: b.incoming ? null : b.categoryId, billId: b.id, billOccurrence: o.index, on: date);
-              app.record([e], trigger: BillPaid(e));
+                  categoryId: b.incoming ? null : b.categoryId, billId: b.id, billOccurrence: o.index, on: date, groupId: eventId);
+              final useSaved = fromSavings && billVault != null && !b.incoming ? (cents < saved ? cents : saved) : 0;
+              app.record([
+                e,
+                if (useSaved > 0)
+                  app.event(kind: 'goal_withdraw', amountCents: useSaved, goalId: billVault!.id, reason: 'planned', on: date, groupId: eventId, note: 'Paid ${b.name}'),
+              ], trigger: BillPaid(e));
               if (context.mounted) Navigator.pop(context);
             },
             child: Text(b.incoming ? 'Confirm received' : 'Confirm paid'),
