@@ -31,6 +31,7 @@ class SettingsScreen extends StatelessWidget {
         automaticallyImplyLeading: false,
       ),
       body: PageBody(children: [
+        if (app.signedIn) ...[const Section('Account'), const AccountPanel()],
         Section('Money accounts', trailing: IconButton(onPressed: () => sheet(context, const AccountEditor()), icon: const Icon(Icons.add))),
         Panel(
           padding: EdgeInsets.zero,
@@ -294,7 +295,7 @@ class _DataPanel extends StatelessWidget {
             if (context.mounted) context.toast('Saved to $path');
           },
         ),
-        if (app.signedIn || app.localOnlyChosen)
+        if (!app.signedIn && app.localOnlyChosen)
           ListTile(
             leading: const Icon(Icons.logout_rounded),
             title: Text(app.signedIn ? 'Sign out' : 'Leave local-only mode'),
@@ -538,6 +539,80 @@ class _CloverVoicePanelState extends State<CloverVoicePanel> {
             if (mounted) setState(() => installed = false);
           },
           child: const Text('Remove voice (free up space)'),
+        ),
+      ]),
+    );
+  }
+}
+/// Signed-in account: username (add / change), email, log out.
+class AccountPanel extends StatefulWidget {
+  const AccountPanel({super.key});
+  @override
+  State<AccountPanel> createState() => _AccountPanelState();
+}
+
+class _AccountPanelState extends State<AccountPanel> {
+  late final ctl = TextEditingController(text: context.appRead.prefs.username ?? '');
+  bool busy = false;
+  String? error;
+
+  Future<void> save() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await context.appRead.setUsername(ctl.text);
+      if (mounted) context.toast('Username saved. You can sign in with it now.');
+    } catch (e) {
+      error = e.toString().replaceAll(RegExp(r'^\w*Exception:?\s*'), '');
+    }
+    if (mounted) setState(() => busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final current = app.prefs.username;
+    return Panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Icon(Icons.mail_rounded, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(app.accountEmail ?? '', overflow: TextOverflow.ellipsis)),
+        ]),
+        const SizedBox(height: 12),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: TextField(
+              controller: ctl,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: current == null ? 'Pick a username' : 'Username',
+                prefixIcon: const Icon(Icons.alternate_email_rounded),
+                helperText: current == null ? 'Then you can sign in with it instead of your email' : 'Sign in with this or your email',
+                errorText: error,
+              ),
+              onSubmitted: (_) => save(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: FilledButton(onPressed: busy ? null : save, child: Text(busy ? '...' : 'Save')),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.logout_rounded),
+          label: const Text('Log out'),
+          onPressed: () async {
+            final pending = app.pendingSync;
+            final warn = pending > 0
+                ? '$pending change(s) have not uploaded yet and will be lost. Wait a moment for them to sync first.'
+                : 'Your money stays safe in your account. This device is cleared until you sign in again.';
+            if (await confirm(context, 'Log out?', warn, ok: 'Log out', danger: pending > 0)) await app.signOut();
+          },
         ),
       ]),
     );

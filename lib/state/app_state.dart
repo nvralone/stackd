@@ -398,20 +398,63 @@ class AppState extends ChangeNotifier {
   // ---------------------------------------------------------------- auth & account
   SupabaseClient? get client => sync?.client;
 
-  Future<void> signIn(String email, String password) async {
-    await client!.auth.signInWithPassword(email: email, password: password);
+  String? get accountEmail => client?.auth.currentUser?.email;
+
+  /// Usernames: 3-20 of a-z 0-9 _ . (case doesn't matter).
+  static String? usernameProblem(String u) =>
+      RegExp(r'^[a-z0-9_.]{3,20}$').hasMatch(u.trim().toLowerCase()) ? null : '3-20 letters, numbers, _ or .';
+
+  /// Sign in with an email OR a username, same password either way. Username sign-in goes through the
+  /// server function so nobody's email is ever sent to a device.
+  Future<void> signIn(String login, String password) async {
+    final id = login.trim();
+    if (id.contains('@')) {
+      await client!.auth.signInWithPassword(email: id, password: password);
+    } else {
+      String? refresh;
+      try {
+        final r = await client!.functions.invoke('username-login', body: {'username': id.toLowerCase(), 'password': password});
+        refresh = (r.data as Map?)?['refresh_token'] as String?;
+      } catch (_) {
+        refresh = null;
+      }
+      if (refresh == null) throw Exception('Wrong username or password.');
+      await client!.auth.setSession(refresh);
+    }
     _adoptLocalProfile();
     sync!.start();
     _changed();
   }
 
-  Future<String> signUp(String email, String password) async {
-    final r = await client!.auth.signUp(email: email, password: password);
-    if (r.session == null) return 'Check your email to confirm your account, then sign in.';
+  Future<String> signUp(String username, String email, String password) async {
+    final u = username.trim().toLowerCase();
+    final problem = usernameProblem(u);
+    if (problem != null) throw Exception('Username: $problem');
+    if (await client!.rpc('username_available', params: {'u': u}) != true) throw Exception('That username is taken.');
+    final r = await client!.auth.signUp(email: email.trim(), password: password);
+    if (r.session == null) return 'Account created. Sign in to continue.';
     _adoptLocalProfile();
+    await setUsername(u);
     sync!.start();
     _changed();
     return 'Account created.';
+  }
+
+  /// Claims (or changes) this account's username on the server, then remembers it locally.
+  Future<void> setUsername(String username) async {
+    final u = username.trim().toLowerCase();
+    final problem = usernameProblem(u);
+    if (problem != null) throw Exception(problem);
+    try {
+      await client!.rpc('claim_username', params: {'u': u});
+    } on PostgrestException catch (e) {
+      throw Exception(e.message.contains('taken') ? 'That username is taken.' : e.message);
+    }
+    final uid = sync?.uid;
+    final existing = db.all('profiles').where((r) => r['id'] == uid).firstOrNull;
+    final p = existing != null ? Prefs.fromRow(existing) : (prefs..id = uid ?? prefs.id);
+    db.put(p..username = u);
+    _changed();
   }
 
   void _adoptLocalProfile() {

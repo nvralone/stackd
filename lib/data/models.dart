@@ -316,12 +316,18 @@ class Prefs extends Entity {
   int get quietStart => _i(notifications['quiet_start']) ?? 22;
   int get quietEnd => _i(notifications['quiet_end']) ?? 8;
 
+  /// Login username. Claimed on the server (claim_username, which checks it's free); only ever sent
+  /// back when set, so a device that hasn't heard about it yet never erases it.
+  String? username;
+
   @override
   DbRow toRow() => {'id': id, 'user_id': id, 'display_name': displayName, 'currency': currency, 'theme': theme,
-        'week_start': weekStart, 'onboarded': onboarded, 'clover': clover, 'notifications': notifications, 'deleted': deleted};
+        'week_start': weekStart, 'onboarded': onboarded, 'clover': clover, 'notifications': notifications, 'deleted': deleted,
+        if (username != null) 'username': username};
   factory Prefs.fromRow(DbRow r) => Prefs(
       id: r['id'] as String, displayName: r['display_name'] as String?, currency: r['currency'] as String? ?? 'USD',
       theme: r['theme'] as String? ?? 'dark', weekStart: _i(r['week_start']) ?? 1, onboarded: _b(r['onboarded']),
       clover: Map<String, Object?>.from(r['clover'] as Map? ?? {}),
-      notifications: Map<String, Object?>.from(r['notifications'] as Map? ?? {}));
+      notifications: Map<String, Object?>.from(r['notifications'] as Map? ?? {}))
+    ..username = r['username'] as String?;
 }
