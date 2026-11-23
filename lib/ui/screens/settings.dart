@@ -110,7 +110,7 @@ class SettingsScreen extends StatelessWidget {
         const Section('Sync, backup & privacy'),
         const _DataPanel(),
         const SizedBox(height: 24),
-        Center(child: Text('STACKD · no bank connections · your data is private by default', style: context.tt.bodySmall)),
+        Center(child: Text('STAKD · no bank connections · your data is private by default', style: context.tt.bodySmall)),
       ]),
     );
   }
@@ -318,12 +318,12 @@ class _DataPanel extends StatelessWidget {
           title: const Text('Delete account & all data', style: TextStyle(color: Accents.danger)),
           onTap: () async {
             if (!await confirm(context, 'Delete everything?',
-                'This permanently deletes your STACKD account, every transaction, vault, bill and setting${app.signedIn ? ' from the cloud and' : ''} from this device. This cannot be undone.',
+                'This permanently deletes your STAKD account, every transaction, vault, bill and setting${app.signedIn ? ' from the cloud and' : ''} from this device. This cannot be undone.',
                 ok: 'Continue', danger: true)) {
               return;
             }
             if (!context.mounted) return;
-            if (!await confirm(context, 'Last chance', 'Really delete all STACKD data permanently?', ok: 'Delete forever', danger: true)) return;
+            if (!await confirm(context, 'Last chance', 'Really delete all STAKD data permanently?', ok: 'Delete forever', danger: true)) return;
             try {
               await app.deleteAccount();
             } catch (e) {
@@ -384,7 +384,7 @@ class _AccountEditorState extends State<AccountEditor> {
             decoration: InputDecoration(
               labelText: isNew ? 'Starting balance' : 'Actual balance now (optional: records an adjustment)',
               prefixText: '\$ ',
-              helperText: isNew ? null : 'STACKD says ${m(current)}',
+              helperText: isNew ? null : 'STAKD says ${m(current)}',
             ),
             validator: (v) => (v ?? '').trim().isEmpty || parseCents(v!) != null ? null : 'Invalid amount',
           ),

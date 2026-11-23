@@ -82,7 +82,7 @@ class Notifier {
               android: AndroidInitializationSettings('@mipmap/ic_launcher'),
               iOS: DarwinInitializationSettings(),
               windows: WindowsInitializationSettings(
-                  appName: 'STACKD', appUserModelId: 'com.stackd.stackd', guid: 'b8a7c6d2-4f3e-4a1b-9c8d-7e6f5a4b3c2d'),
+                  appName: 'STAKD', appUserModelId: 'com.stackd.stackd', guid: 'b8a7c6d2-4f3e-4a1b-9c8d-7e6f5a4b3c2d'),
             ),
           ) ??
           false;

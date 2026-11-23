@@ -11,7 +11,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // A second launch just brings the open window to the front.
   ::CreateMutexW(nullptr, TRUE, L"Local\\STACKD_single_instance");
   if (::GetLastError() == ERROR_ALREADY_EXISTS) {
-    if (HWND existing = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"STACKD")) {
+    if (HWND existing = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"STAKD")) {
       ::ShowWindow(existing, SW_RESTORE);
       ::SetForegroundWindow(existing);
     }
@@ -38,7 +38,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 800);
-  if (!window.Create(L"STACKD", origin, size)) {
+  if (!window.Create(L"STAKD", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

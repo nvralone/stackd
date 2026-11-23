@@ -97,7 +97,7 @@ void main() {
   testWidgets('first run shows onboarding', (t) async {
     final app = AppState(LocalDb.memory(), clock: () => now);
     await pumpAt(t, app, const Size(390, 844));
-    expect(find.text('Welcome to STACKD'), findsOneWidget);
+    expect(find.text('Welcome to STAKD'), findsOneWidget);
     await t.tap(find.text('Next'));
     await t.pump(const Duration(milliseconds: 400));
     expect(find.text('Your money accounts'), findsOneWidget);

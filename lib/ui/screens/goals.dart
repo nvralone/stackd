@@ -752,7 +752,7 @@ class _TripDetailState extends State<TripDetail> {
           children: [
             TextField(
               controller: email,
-              decoration: const InputDecoration(labelText: 'Their STACKD email'),
+              decoration: const InputDecoration(labelText: 'Their STAKD email'),
             ),
             const SizedBox(height: 8),
             const Text('They will see this trip\'s plan, shared contributions and shared expenses. Never your accounts or other spending.'),

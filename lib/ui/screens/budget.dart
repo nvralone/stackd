@@ -66,7 +66,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
         ),
         Section('Paydays', trailing: TextButton.icon(onPressed: () => sheet(context, const ScheduleEditor()), icon: const Icon(Icons.add), label: const Text('Add'))),
         if (d.schedules.isEmpty)
-          const Panel(child: Text('No income schedule yet. Add one so STACKD knows when money arrives.'))
+          const Panel(child: Text('No income schedule yet. Add one so STAKD knows when money arrives.'))
         else
           Panel(
             padding: EdgeInsets.zero,

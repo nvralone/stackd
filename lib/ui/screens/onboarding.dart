@@ -29,7 +29,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final limits = <String, TextEditingController>{};
 
   static const titles = [
-    'Welcome to STACKD',
+    'Welcome to STAKD',
     'Your money accounts',
     'How often do you get paid?',
     'About how much per paycheck?',
@@ -131,7 +131,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 16),
           TextField(controller: name, decoration: const InputDecoration(labelText: 'What should Clover call you? (optional)')),
           const SizedBox(height: 12),
-          const Text('STACKD never connects to your bank. You record money yourself, and every change is reversible and audited.', textAlign: TextAlign.center),
+          const Text('STAKD never connects to your bank. You record money yourself, and every change is reversible and audited.', textAlign: TextAlign.center),
         ];
       case 1:
         return [
@@ -161,7 +161,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ];
       case 4:
         return [
-          const Text('Rent, insurance, subscriptions, loans... Set the next due date and STACKD reserves money for it.', textAlign: TextAlign.center),
+          const Text('Rent, insurance, subscriptions, loans... Set the next due date and STAKD reserves money for it.', textAlign: TextAlign.center),
           const SizedBox(height: 12),
           for (final b in data.bills) ListTile(title: Text(b.name), subtitle: Text('${m(b.amountCents)} · ${freqLabel(b.frequency)}')),
           OutlinedButton.icon(onPressed: () => sheet(context, const BillEditor()), icon: const Icon(Icons.add), label: const Text('Add bill or debt')),

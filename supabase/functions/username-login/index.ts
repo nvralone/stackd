@@ -1,6 +1,7 @@
 // Sign in with username + password. Runs on Supabase (server side) so the email that belongs to a
 // username never reaches anyone's device. Returns a normal Supabase session on success.
 // Deploy with "Verify JWT" OFF (people call it before they are signed in).
+// Needs: grant select on public.profiles to service_role (see migrations/0003).
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
 const cors = {
@@ -24,6 +25,7 @@ function key(jsonVar: string, legacyVar: string): string {
   return Deno.env.get(legacyVar) ?? "";
 }
 
+// Same answer for every failure, so nobody can probe which usernames exist.
 const WRONG = "Wrong username or password.";
 
 Deno.serve(async (req) => {
@@ -40,18 +42,25 @@ Deno.serve(async (req) => {
   if (!/^[a-z0-9_.]{3,20}$/.test(username) || password.length < 6) return json({ error: WRONG }, 400);
 
   const url = Deno.env.get("SUPABASE_URL")!;
-  const admin = createClient(url, key("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data: profile } = await admin.from("profiles").select("user_id").eq("username", username).maybeSingle();
-  if (!profile) return json({ error: WRONG }, 400);
-  const { data: u, error: ue } = await admin.auth.admin.getUserById(profile.user_id);
-  if (ue || !u?.user?.email) return json({ error: WRONG }, 400);
+  try {
+    const admin = createClient(url, key("SUPABASE_SECRET_KEYS", "SUPABASE_SERVICE_ROLE_KEY"), {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: profile, error: pe } = await admin.from("profiles").select("user_id").eq("username", username).maybeSingle();
+    if (pe) console.error("profile lookup failed:", pe.message); // server log only
+    if (!profile) return json({ error: WRONG }, 400);
+    const { data: u, error: ue } = await admin.auth.admin.getUserById(profile.user_id);
+    if (ue) console.error("user lookup failed:", ue.message);
+    if (ue || !u?.user?.email) return json({ error: WRONG }, 400);
 
-  const pub = createClient(url, key("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY"), {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error } = await pub.auth.signInWithPassword({ email: u.user.email, password });
-  if (error || !data.session) return json({ error: WRONG }, 400);
-  return json({ refresh_token: data.session.refresh_token });
+    const pub = createClient(url, key("SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_ANON_KEY"), {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await pub.auth.signInWithPassword({ email: u.user.email, password });
+    if (error || !data.session) return json({ error: WRONG }, 400);
+    return json({ refresh_token: data.session.refresh_token });
+  } catch (e) {
+    console.error("username-login crashed:", String(e));
+    return json({ error: "Sign-in is having trouble. Try your email instead." }, 500);
+  }
 });

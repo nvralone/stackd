@@ -27,7 +27,7 @@ class StackdApp extends StatelessWidget {
         child: ListenableBuilder(
           listenable: app,
           builder: (context, _) => MaterialApp(
-            title: 'STACKD',
+            title: 'STAKD',
             debugShowCheckedModeBanner: false,
             theme: buildTheme(Brightness.light),
             darkTheme: buildTheme(Brightness.dark),
