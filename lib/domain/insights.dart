@@ -155,7 +155,7 @@ WeeklyRecap buildRecap(FinanceData f, {DateTime? weekStartDate}) {
       break;
     }
   }
-  return WeeklyRecap(s, e, t, p, categoryBreakdown(f, s, e), over, emergency, other, upcoming, f.availableToSpend,
+  return WeeklyRecap(s, e, t, p, categoryBreakdown(f, s, e), over, emergency, other, upcoming, f.totalMoney - f.totalSaved - f.reservedForBills,
       vac, completed, ffTotal, ffVisits, improving);
 }
 

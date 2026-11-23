@@ -117,6 +117,7 @@ class AppState extends ChangeNotifier {
 
   void _afterSync() {
     reload();
+    cloverNow = brain.home(data); // keep Clover's message in step with freshly synced numbers
     notifyListeners();
   }
 

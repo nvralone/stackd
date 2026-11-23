@@ -103,8 +103,12 @@ class FinanceData {
   int get reservedForBills =>
       billing.obligationsUntil(bills, ledger, overrides, addDays(horizonEnd, 1), now: now);
 
-  /// Money not already saved or needed for bills before the next payday.
-  int get availableToSpend => totalMoney - totalSaved - reservedForBills;
+  /// What's still unspent in this period's budgets (categories with a limit). That money is spoken for.
+  int get budgetedRemaining =>
+      categoryStatuses.where((s) => s.hasLimit).fold(0, (sum, s) => sum + (s.remaining > 0 ? s.remaining : 0));
+
+  /// Free money: not in a vault, not needed for bills before payday, not already in a budget.
+  int get availableToSpend => totalMoney - totalSaved - reservedForBills - budgetedRemaining;
 
   int get daysUntilHorizon => daysBetween(todayDate, horizonEnd).clamp(1, 366);
 

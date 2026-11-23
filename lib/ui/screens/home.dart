@@ -63,7 +63,7 @@ class HomeScreen extends StatelessWidget {
             Panel(
               color: context.cs.primary.withValues(alpha: 0.12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('SAFE TO SPEND', style: context.tt.labelMedium?.copyWith(letterSpacing: 1.4, fontWeight: FontWeight.w800)),
+                Text('FREE MONEY (NOT ASSIGNED YET)', style: context.tt.labelMedium?.copyWith(letterSpacing: 1.4, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
                 FittedBox(
                   fit: BoxFit.scaleDown,
@@ -77,7 +77,7 @@ class HomeScreen extends StatelessWidget {
                   style: context.tt.bodyMedium,
                 ),
                 const SizedBox(height: 6),
-                Text('Total money − saved vaults − bills due before payday. Projections are not balances.',
+                Text('Total money − vaults − bills due before payday − what\'s left in your budgets. Spend it, or give it a job with Extra money / Add money.',
                     style: context.tt.bodySmall?.copyWith(color: context.cs.onSurfaceVariant)),
               ]),
             ),

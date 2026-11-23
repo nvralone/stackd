@@ -36,7 +36,7 @@ void main() {
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationRail), findsNothing);
     expect(find.byType(NavigationDestination), findsNWidgets(6));
-    expect(find.text('SAFE TO SPEND'), findsOneWidget);
+    expect(find.text('FREE MONEY (NOT ASSIGNED YET)'), findsOneWidget);
     await t.tap(find.text('Bills').last);
     await t.pump(const Duration(milliseconds: 500));
     expect(find.text('Next 30 days'), findsWidgets);

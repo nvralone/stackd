@@ -72,7 +72,8 @@ void main() {
       ]);
       expect(f.totalMoney, 20000); // money did not leave accounts
       expect(f.totalSaved, 4000);
-      expect(f.availableToSpend, 16000);
+      expect(f.budgetedRemaining, 3000); // Fast Food budget still unspent
+      expect(f.availableToSpend, 20000 - 4000 - 3000);
       final s = f.goalStatus(beach);
       expect(s.deposits, 5000);
       expect(s.withdrawals, 1000);
@@ -128,7 +129,7 @@ void main() {
       final f = fin([ev('opening', 10000, acct: 'cash')], bills: [loan]);
       expect(f.totalMoney, 10000);
       expect(f.reservedForBills, greaterThan(0));
-      expect(f.availableToSpend, 10000 - f.reservedForBills);
+      expect(f.availableToSpend, 10000 - f.reservedForBills - f.budgetedRemaining);
     });
   });
 

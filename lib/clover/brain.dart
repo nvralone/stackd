@@ -97,8 +97,10 @@ class CloverBrain {
       final r = pick('bill_overdue', {'bill': overdue.bill.name, 'amount': formatCents(overdue.remainingCents), 'when': _when(f, overdue.due)});
       if (r != null) return r;
     }
-    if (f.availableToSpend < 0 && f.reservedForBills > 0) {
-      final r = pick('bills_at_risk', {'short': formatCents(-f.availableToSpend)});
+    // Real shortfall: money outside vaults can't cover bills due before payday (budgets don't count here).
+    final billShort = f.reservedForBills - (f.totalMoney - f.totalSaved);
+    if (billShort > 0 && f.reservedForBills > 0) {
+      final r = pick('bills_at_risk', {'short': formatCents(billShort)});
       if (r != null) return r;
     }
     final done = f.goalStatuses.where((g) => g.complete).firstOrNull;
