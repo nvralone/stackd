@@ -1,10 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../clover/clover_widget.dart';
-import '../../clover/moods.dart';
 import '../../state/app_state.dart';
 import '../common.dart';
-import '../pixel.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -49,9 +46,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Form(
                   key: form,
                   child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    const Center(child: CloverSprite(mood: CloverMood.happy, size: 120)),
-                    const SizedBox(height: 12),
-                    const Center(child: StackdLogo(size: 30)),
+                    Center(child: Image.asset('assets/brand/stakd_logo.png', width: 300, filterQuality: FilterQuality.medium, semanticLabel: 'STAKD')),
                     const SizedBox(height: 10),
                     Text('Your money. Your stack. Clover watching.', textAlign: TextAlign.center, style: TextStyle(color: context.cs.onSurfaceVariant)),
                     const SizedBox(height: 24),

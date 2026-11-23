@@ -64,6 +64,11 @@ class HomeScreen extends StatelessWidget {
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (!context.wide) // phones have no side menu, so the logo sits here
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Image.asset('assets/brand/stakd_logo.png', height: 56, filterQuality: FilterQuality.medium, semanticLabel: 'STAKD'),
+                      ),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,

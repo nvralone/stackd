@@ -160,12 +160,15 @@ class SideNav extends StatelessWidget {
       ),
       child: SafeArea(
         child: Column(children: [
-          const SizedBox(height: 24),
+          SizedBox(height: full ? 16 : 24),
           if (full)
-            const Padding(padding: EdgeInsets.only(right: 16), child: StackdLogo(size: 26))
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Image.asset('assets/brand/stakd_logo.png', width: 200, filterQuality: FilterQuality.medium, semanticLabel: 'STAKD'),
+            )
           else
             Image.asset('assets/clover/clover_base.png', width: 44, filterQuality: FilterQuality.none),
-          const SizedBox(height: 28),
+          SizedBox(height: full ? 16 : 28),
           for (var i = 0; i < destinations.length; i++)
             Padding(
               padding: EdgeInsets.symmetric(horizontal: full ? 14 : 10, vertical: 3),

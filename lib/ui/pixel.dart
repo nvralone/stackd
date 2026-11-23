@@ -331,16 +331,3 @@ class _NightPainter extends CustomPainter {
   @override
   bool shouldRepaint(_NightPainter o) => o.tint != tint || o.phone != phone;
 }
-/// The STAKD logo: pixel letters with a little crown.
-class StackdLogo extends StatelessWidget {
-  final double size;
-  const StackdLogo({super.key, this.size = 22});
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Stack(clipBehavior: Clip.none, children: [
-      PixelText('STAKD', size: size, color: cs.onSurface, shadow: cs.primary),
-      Positioned(right: -size * 0.55, top: -size * 0.55, child: Icon(Icons.workspace_premium_rounded, size: size * 0.8, color: const Color(0xFFFFD166))),
-    ]);
-  }
-}
