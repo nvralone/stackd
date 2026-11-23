@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../clover/kokoro_voice.dart';
+
 import '../../clover/brain.dart';
 import '../../clover/clover_widget.dart';
 import '../../clover/moods.dart';
@@ -146,6 +148,20 @@ class CloverSettings extends StatelessWidget {
           ],
           onChanged: (v) => set('frequency', v!),
         ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: p.swearing,
+          title: const Text('Clover can swear'),
+          subtitle: Text(p.personality == 'friendly'
+              ? 'Friendly Clover keeps it clean either way.'
+              : p.personality == 'chaotic'
+                  ? 'Chaotic: now and then.'
+                  : 'Savage: a lot more often.'),
+          onChanged: (v) {
+            set('swear', v);
+            app.refreshHomeClover();
+          },
+        ),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: p.silent, title: const Text('Silent mode'), subtitle: const Text('No sounds at all'), onChanged: (v) => set('silent', v)),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: p.voiceMuted, title: const Text('Mute voice'), subtitle: const Text('Replay buttons still play'), onChanged: (v) => set('muted', v)),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: p.subtitles, title: const Text('Subtitles'), onChanged: (v) => set('subtitles', v)),
@@ -154,7 +170,8 @@ class CloverSettings extends StatelessWidget {
         const SizedBox(height: 6),
         SegmentedButton<String>(
           segments: const [
-            ButtonSegment(value: 'talk', label: Text('Talks'), icon: Icon(Icons.record_voice_over_rounded)),
+            ButtonSegment(value: 'clover', label: Text('Clover'), icon: Icon(Icons.pets_rounded)),
+            ButtonSegment(value: 'talk', label: Text('Device'), icon: Icon(Icons.record_voice_over_rounded)),
             ButtonSegment(value: 'babble', label: Text('Gibberish'), icon: Icon(Icons.graphic_eq_rounded)),
           ],
           selected: {p.voiceStyle},
@@ -162,10 +179,14 @@ class CloverSettings extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Text(p.voiceStyle == 'talk'
-              ? 'Says his lines out loud in a high, goofy voice (uses your device\'s free built-in voice).'
-              : 'Cartoon gibberish, like a video game character.', style: context.tt.bodySmall),
+          child: Text(switch (p.voiceStyle) {
+            'clover' => 'Clover\'s own voice, made on your device by a free open-source speech model (Kokoro, Apache-2.0). '
+                'It\'s tuned to sound young and mischievous, but it is not a recorded voice actor.',
+            'talk' => 'Says his lines with your device\'s built-in voice, pitched up.',
+            _ => 'Cartoon gibberish, like a video game character.',
+          }, style: context.tt.bodySmall),
         ),
+        if (p.voiceStyle == 'clover') const CloverVoicePanel(),
         Row(children: [
           const Icon(Icons.volume_down_rounded),
           Expanded(child: Slider(value: p.voiceVolume.toDouble(), max: 100, divisions: 20, label: '${p.voiceVolume}', onChanged: (v) => set('volume', v.round()))),
@@ -401,6 +422,132 @@ class _AccountEditorState extends State<AccountEditor> {
             ),
         ]),
       ),
+    );
+  }
+}
+
+/// Download / pick / preview / remove Clover's offline character voice.
+class CloverVoicePanel extends StatefulWidget {
+  const CloverVoicePanel({super.key});
+  @override
+  State<CloverVoicePanel> createState() => _CloverVoicePanelState();
+}
+
+class _CloverVoicePanelState extends State<CloverVoicePanel> {
+  bool? installed;
+  double? progress; // non-null while downloading
+  bool unpacking = false;
+  String? error;
+
+  static const _previews = [
+    'PAYDAY! Okay okay, bills first. Then we party. A little.',
+    '*whispers* psst. Insurance is due Friday. Don\'t let it sneak up on you.',
+    'Heh heh. Five drive-thrus this week? I\'m not mad. I\'m impressed.',
+    'WHO AUTHORIZED THIS?! The fun budget is GONE!',
+  ];
+  int previewIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    KokoroVoice.instance.installed.then((v) {
+      if (mounted) setState(() => installed = v);
+    });
+  }
+
+  Future<void> download() async {
+    setState(() {
+      progress = 0;
+      error = null;
+    });
+    try {
+      await KokoroVoice.instance.install(progress: (v) {
+        if (!mounted) return;
+        setState(() {
+          progress = v;
+          unpacking = v >= 1;
+        });
+      });
+      if (mounted) setState(() => installed = true);
+    } catch (e) {
+      if (mounted) setState(() => error = 'Download failed. Check your connection and try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          progress = null;
+          unpacking = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final p = app.prefs;
+    void set(String k, Object v) => app.savePrefs((x) => x.clover[k] = v);
+    if (installed == null) return const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator());
+    if (progress != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          LinearProgressIndicator(value: unpacking ? null : progress),
+          const SizedBox(height: 6),
+          Text(unpacking ? 'Unpacking... (about a minute)' : 'Downloading Clover\'s voice... ${(progress! * 100).round()}%',
+              style: context.tt.bodySmall),
+        ]),
+      );
+    }
+    if (installed == false) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          FilledButton.icon(
+              onPressed: download, icon: const Icon(Icons.download_rounded), label: const Text('Download Clover\'s voice (132 MB, one time)')),
+          const SizedBox(height: 4),
+          Text('After that it works offline. Until then Clover uses the device voice.', style: context.tt.bodySmall),
+          if (error != null) Text(error!, style: const TextStyle(color: Accents.danger)),
+        ]),
+      );
+    }
+    final sid = cloverVoices.values.contains(p.voiceSid) ? p.voiceSid : 18;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        DropdownButtonFormField<int>(
+          isExpanded: true,
+          initialValue: sid,
+          decoration: const InputDecoration(labelText: 'Voice'),
+          items: [for (final e in cloverVoices.entries) DropdownMenuItem(value: e.value, child: Text(e.key))],
+          onChanged: (v) => set('voice_sid', v!),
+        ),
+        Row(children: [
+          const Text('Pitch'),
+          Expanded(
+            child: Slider(
+                value: p.voicePitch.clamp(1.0, 1.35), min: 1.0, max: 1.35, divisions: 7,
+                label: p.voicePitch.toStringAsFixed(2), onChanged: (v) => set('voice_pitch', v)),
+          ),
+        ]),
+        FilledButton.tonalIcon(
+          onPressed: () {
+            final line = _previews[previewIndex++ % _previews.length];
+            app.speak(CloverSays('preview', 'preview', CloverMood.excited, line), force: true);
+            context.toast(line.replaceAll(RegExp(r'\*[^*]*\*\s*'), '(whispers) '));
+          },
+          icon: const Icon(Icons.play_arrow_rounded),
+          label: const Text('Preview Clover\'s voice'),
+        ),
+        Text('The first time a line is spoken takes a moment; after that it\'s instant.', style: context.tt.bodySmall),
+        TextButton(
+          onPressed: () async {
+            if (!await confirm(context, 'Remove voice?', 'Frees about 145 MB. Clover goes back to the device voice until you download it again.')) return;
+            await KokoroVoice.instance.uninstall();
+            if (mounted) setState(() => installed = false);
+          },
+          child: const Text('Remove voice (free up space)'),
+        ),
+      ]),
     );
   }
 }

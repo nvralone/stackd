@@ -49,6 +49,8 @@ class CloverBrain {
   /// Recently used line ids, most recent last (persisted by the app).
   final List<String> history;
   final Random rng;
+  /// Set from the user's prefs each time Clover picks a line.
+  bool swearing = true;
   CloverBrain(this.history, {Random? rng}) : rng = rng ?? Random();
 
   String _when(FinanceData f, DateTime d) {
@@ -60,7 +62,7 @@ class CloverBrain {
   }
 
   CloverSays? say(String topic, String personality, Map<String, String> data) {
-    final pool = (dialogue[topic] ?? const <Line>[]).where((l) => l.fits(personality)).toList();
+    final pool = (dialogue[topic] ?? const <Line>[]).where((l) => l.fits(personality, swearing: swearing)).toList();
     if (pool.isEmpty) return null;
     // Anti-repeat: skip lines used recently; window shrinks for small pools so something is always left.
     // Exclude the topic's most recently used lines, always leaving at least one candidate.
@@ -79,6 +81,7 @@ class CloverBrain {
 
   /// Mood + message for the Home screen, based on the current state of the money.
   CloverSays home(FinanceData f, {int? hour}) {
+    swearing = f.prefs.swearing;
     final p = f.prefs.personality;
     final payday = f.nextPayday;
     final base = {
@@ -155,6 +158,7 @@ class CloverBrain {
 
   /// Reaction to something the user just recorded. Null when frequency settings say stay quiet.
   CloverSays? react(FinanceData f, CloverTrigger t) {
+    swearing = f.prefs.swearing;
     final p = f.prefs.personality;
     final freq = f.prefs.frequency;
     switch (t) {
@@ -168,6 +172,14 @@ class CloverBrain {
           }
           final st = f.categoryStatus(c);
           if (st.over) return say('overspent', p, {'category': c.name, 'amount': formatCents(-st.remaining)});
+          // Same non-essential thing over and over this week (4+ buys).
+          final week = f.thisWeek;
+          final same = f.ledger.active.where((x) =>
+              x.kind == 'expense' && x.categoryId == c.id && !x.occurredOn.isBefore(week.start) && x.occurredOn.isBefore(week.end)).toList();
+          if (same.length >= 4) {
+            return say('repeat_spend', p,
+                {'count': '${same.length}', 'category': c.name, 'amount': formatCents(same.fold(0, (s, x) => s + x.amountCents))});
+          }
         }
         final free = f.availableToSpend + e.amountCents;
         if (free > 0 && e.amountCents * 4 >= free && e.amountCents >= 2000 && !(c?.essential ?? false)) {
@@ -190,7 +202,14 @@ class CloverBrain {
         if (g.name == billSavingsName) {
           return say(e.kind == 'goal_deposit' ? 'bill_envelope_add' : 'bill_envelope_use', p, data);
         }
-        if (e.kind == 'goal_deposit') return s.complete ? say('goal_complete', p, data) : say('goal_deposit', p, data);
+        if (e.kind == 'goal_deposit' && s.complete) return say('goal_complete', p, data);
+        if (e.kind == 'goal_deposit' && g.tripId != null && g.goalCents > 0) {
+          // Crossed 25 / 50 / 75 % with this deposit.
+          final before = (s.saved - e.amountCents) * 4 ~/ g.goalCents;
+          final after = s.saved * 4 ~/ g.goalCents;
+          if (after > before && after >= 1 && after <= 3) return say('vacation_milestone', p, {...data, 'pct': '${after * 25}'});
+        }
+        if (e.kind == 'goal_deposit') return say('goal_deposit', p, data);
         if (e.reason == 'emergency') return say('emergency_withdraw', p, data);
         if (g.tripId != null) return say('vacation_withdraw', p, data);
         return say('goal_withdraw', p, data);
@@ -208,6 +227,7 @@ class CloverBrain {
   }
 
   CloverSays recap(FinanceData f, WeeklyRecap r) {
+    swearing = f.prefs.swearing;
     final p = f.prefs.personality;
     final data = {
       'income': formatCents(r.totals.income),

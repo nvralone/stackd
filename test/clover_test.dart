@@ -39,6 +39,54 @@ void main() {
     }
   });
 
+  test('with swearing off, every topic still has a clean line for every personality', () {
+    for (final entry in dialogue.entries) {
+      for (final p in ['friendly', 'chaotic', 'savage']) {
+        expect(entry.value.any((l) => l.fits(p, swearing: false)), isTrue, reason: '${entry.key} has no clean $p line');
+      }
+    }
+  });
+
+  test('Friendly never swears; swearing off removes every explicit line', () {
+    final explicit = dialogue.values.expand((l) => l).where((l) => l.x).toList();
+    expect(explicit, isNotEmpty);
+    for (final l in explicit) {
+      expect(l.fits('friendly'), isFalse, reason: l.id);
+      for (final p in ['chaotic', 'savage']) {
+        expect(l.fits(p, swearing: false), isFalse, reason: l.id);
+      }
+    }
+    // Savage swears more often than Chaotic
+    int count(String p) => explicit.where((l) => l.fits(p)).length;
+    expect(count('savage'), greaterThan(count('chaotic') ~/ 2));
+  });
+
+  test('swearing preference is respected by the brain', () {
+    for (var i = 0; i < 30; i++) {
+      final s = CloverBrain([], rng: Random(i)).react(
+          FinanceData(accounts: [cash], categories: [ff], events: [ev('income', 50000, acct: 'cash', src: 'paycheck')],
+              prefs: Prefs(clover: {'personality': 'savage', 'swear': false}), now: now),
+          IncomeLogged(ev('income', 50000, acct: 'cash', src: 'paycheck')))!;
+      expect(dialogue['income']!.firstWhere((l) => l.id == s.lineId).x, isFalse);
+    }
+  });
+
+  test('buying the same non-essential thing 4 times in a week gets called out', () {
+    final fun = Category(id: 'fun', name: 'Games', color: 0, limitCents: 100000);
+    final e = [for (var i = 0; i < 4; i++) ev('expense', 500, acct: 'cash', cat: 'fun')];
+    final f = FinanceData(accounts: [cash], categories: [fun], events: [ev('opening', 100000, acct: 'cash'), ...e], now: now);
+    final s = brain().react(f, ExpenseLogged(e.last))!;
+    expect(s.topic, 'repeat_spend');
+    expect(s.text, anyOf(contains('4'), contains('\$20.00')));
+  });
+
+  test('vacation deposit crossing 50% is a milestone', () {
+    final d = ev('goal_deposit', 10000, goal: 'beach');
+    final s = brain().react(fin([ev('goal_deposit', 20000, goal: 'beach'), d]), GoalMoved(d))!;
+    expect(s.topic, 'vacation_milestone');
+    expect(s.text, contains('50'));
+  });
+
   test('line ids are unique', () {
     final ids = dialogue.values.expand((l) => l).map((l) => l.id).toList();
     expect(ids.toSet().length, ids.length);

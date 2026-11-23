@@ -1,6 +1,8 @@
 // Clover's free, local voice.
 // - "talk"  : Clover actually says the line with the device voice, pitched up into a goofy cartoon range,
 //             with a quick chirp in front. Default.
+// - "clover": character voice from the free offline Kokoro model (downloaded on request), see kokoro_voice.dart.
+//             Falls back to "talk" if it isn't installed or fails.
 // - "babble": cartoon gibberish synthesized per syllable (vowel formants + raspy pulse), Animal-Crossing style.
 // No network, no paid service.
 import 'dart:io';
@@ -10,6 +12,8 @@ import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'kokoro_voice.dart';
 
 import 'moods.dart';
 
@@ -200,7 +204,64 @@ class CloverVoice {
     }
   }
 
+  int _seq = 0; // bumps on every new line / stop, so an older line stops playing
+
+  /// Clover's character voice. Sentences play as soon as each one is ready; finished lines are cached
+  /// so repeats are instant. Falls back to the device voice if the model isn't installed or fails.
+  Future<void> character(String text, CloverMood mood, {required int volume, required VoiceStyle style}) async {
+    final token = ++_seq;
+    final kokoro = KokoroVoice.instance;
+    if (!await kokoro.installed) return talk(text, mood, volume: volume);
+    final s = VoiceStyle(sid: style.sid, pitch: style.pitch * (1 + (mood.pitch - 1) * 0.25), speed: style.speed);
+    try {
+      await _tts.stop();
+      await _player.stop();
+      onTalking?.call(true);
+      final dir = Directory('${(await getTemporaryDirectory()).path}/clover_voice');
+      final cached = File('${dir.path}/${s.sid}_${s.pitch.toStringAsFixed(3)}_${_hash(text)}.wav');
+      if (cached.existsSync()) {
+        await _playWait(await cached.readAsBytes(), volume, 'line', token);
+        return;
+      }
+      final clips = <Uint8List>[];
+      var i = 0;
+      await for (final wav in kokoro.speak(text, s)) {
+        if (token != _seq) return;
+        clips.add(wav);
+        await _playWait(wav, volume, 'part${i++ % 2}', token);
+        if (token != _seq) return;
+      }
+      if (clips.isNotEmpty) {
+        await dir.create(recursive: true);
+        await cached.writeAsBytes(joinWavs(clips));
+      }
+    } catch (_) {
+      if (token == _seq) await talk(text, mood, volume: volume);
+    } finally {
+      if (token == _seq) onTalking?.call(false);
+    }
+  }
+
+  /// Plays a WAV and waits until it ends (or a newer line takes over).
+  Future<void> _playWait(Uint8List wav, int volume, String name, int token) async {
+    if (token != _seq) return;
+    final rate = ByteData.sublistView(wav).getUint32(24, Endian.little);
+    final ms = rate == 0 ? 0 : (wav.length - 44) * 1000 ~/ (rate * 2);
+    final done = _player.onPlayerComplete.first;
+    await _play(wav, volume, name);
+    await done.timeout(Duration(milliseconds: ms + 1500), onTimeout: () {});
+  }
+
+  static String _hash(String s) {
+    var h = 0x811c9dc5;
+    for (final c in s.codeUnits) {
+      h = ((h ^ c) * 0x01000193) & 0xffffffff;
+    }
+    return h.toRadixString(16);
+  }
+
   Future<void> stop() async {
+    _seq++;
     try {
       await _player.stop();
       await _tts.stop();

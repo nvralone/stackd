@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../clover/brain.dart';
+import '../clover/kokoro_voice.dart';
 import '../clover/voice.dart';
 import '../core/dates.dart';
 import '../core/ids.dart';
@@ -352,6 +353,8 @@ class AppState extends ChangeNotifier {
     if (p.silent || (p.voiceMuted && !force)) return;
     if (p.voiceStyle == 'babble' && !narrate) {
       voice?.babble(s.text, s.mood, volume: p.voiceVolume);
+    } else if (p.voiceStyle == 'clover') {
+      voice?.character(s.text, s.mood, volume: p.voiceVolume, style: VoiceStyle(sid: p.voiceSid, pitch: p.voicePitch));
     } else {
       voice?.talk(s.text, s.mood, volume: p.voiceVolume, chirp: !narrate);
     }
