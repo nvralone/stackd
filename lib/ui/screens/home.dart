@@ -77,8 +77,19 @@ class HomeScreen extends StatelessWidget {
                   style: context.tt.bodyMedium,
                 ),
                 const SizedBox(height: 6),
-                Text('Total money − vaults − bills due before payday − what\'s left in your budgets. Spend it, or give it a job with Extra money / Add money.',
+                Text('Total money − vaults − bills due before payday − what\'s left in your budgets.',
                     style: context.tt.bodySmall?.copyWith(color: context.cs.onSurfaceVariant)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  FilledButton.tonalIcon(
+                      onPressed: () => sheet(context, const GiveJobSheet()),
+                      icon: const Icon(Icons.work_outline_rounded),
+                      label: const Text('Give it a job')),
+                  OutlinedButton.icon(
+                      onPressed: () => sheet(context, const CountMoneySheet()),
+                      icon: const Icon(Icons.calculate_rounded),
+                      label: const Text('Set the money I have')),
+                ]),
               ]),
             ),
           ],
@@ -90,7 +101,8 @@ class HomeScreen extends StatelessWidget {
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: grid, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 120),
               children: [
-                Stat('Total money', d.totalMoney, icon: Icons.account_balance_wallet_rounded),
+                Stat('Total money', d.totalMoney, icon: Icons.account_balance_wallet_rounded,
+                    hint: d.totalSaved > 0 ? 'includes ${m(d.totalSaved)} in vaults' : 'tap to set', onTap: () => sheet(context, const CountMoneySheet())),
                 Stat('Reserved for bills', d.reservedForBills, icon: Icons.event_note_rounded, color: Accents.warn, hint: 'Tap to see / change', onTap: () => sheet(context, const ReservedSheet())),
                 Stat('Saved in vaults', d.totalSaved, icon: Icons.savings_rounded, color: Accents.savings, onTap: () => Shell.go(context, 3)),
                 Stat('Vacation savings', d.vacationSaved, icon: Icons.flight_takeoff_rounded, color: Accents.vacation, onTap: () => Shell.go(context, 3)),

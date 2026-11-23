@@ -82,6 +82,95 @@ class _CountMoneySheetState extends State<CountMoneySheet> {
   }
 }
 
+/// Give free money a job: put it in a budget, save it in a vault, or move it to another account.
+class GiveJobSheet extends StatefulWidget {
+  const GiveJobSheet({super.key});
+  @override
+  State<GiveJobSheet> createState() => _GiveJobSheetState();
+}
+
+class _GiveJobSheetState extends State<GiveJobSheet> {
+  String where = 'budget';
+  final amount = TextEditingController();
+  String? target, from, to;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final d = app.data;
+    final cents = (parseCents(amount.text) ?? 0).abs();
+    final accts = d.accounts.where((a) => !a.archived).toList();
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Give your money a job', style: context.tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+        Text('Free right now: ${m(d.availableToSpend)}', style: context.tt.bodyMedium),
+        const SizedBox(height: 12),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'budget', label: Text('Budget'), icon: Icon(Icons.pie_chart_rounded)),
+            ButtonSegment(value: 'vault', label: Text('Vault'), icon: Icon(Icons.savings_rounded)),
+            ButtonSegment(value: 'account', label: Text('Account'), icon: Icon(Icons.swap_horiz_rounded)),
+          ],
+          selected: {where},
+          onSelectionChanged: (s) => setState(() {
+            where = s.first;
+            target = null;
+          }),
+        ),
+        const SizedBox(height: 12),
+        AmountField(amount, autofocus: true, onChanged: (_) => setState(() {})),
+        const SizedBox(height: 12),
+        if (where == 'budget')
+          CategoryPicker(value: target, onChanged: (v) => setState(() => target = v))
+        else if (where == 'vault')
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            initialValue: target,
+            decoration: const InputDecoration(labelText: 'Vault'),
+            items: [for (final g in d.goals.where((g) => !g.archived)) DropdownMenuItem(value: g.id, child: Text(g.name))],
+            onChanged: (v) => setState(() => target = v),
+          )
+        else ...[
+          AccountPicker(value: from, label: 'From account', onChanged: (v) => setState(() => from = v)),
+          const SizedBox(height: 12),
+          AccountPicker(value: to, label: 'To account', exclude: from, onChanged: (v) => setState(() => to = v)),
+        ],
+        const SizedBox(height: 8),
+        Text(
+          switch (where) {
+            'budget' => 'Adds to that budget for this period. The money stays where it is; it just has a job now.',
+            'vault' => 'Sets it aside in the vault. It still counts in your total money, but not as free money.',
+            _ => 'Moves money between your accounts (e.g. cash to Cash App). Not income or spending.',
+          },
+          style: context.tt.bodySmall,
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: cents == 0 || (where == 'account' ? (from == null || to == null) : target == null)
+              ? null
+              : () {
+                  if (where == 'budget') {
+                    final c = d.category(target)!;
+                    app.save(BudgetAllocation(
+                        id: newId(), categoryId: c.id, periodStart: periodOf(d.todayDate, c.period, app.prefs.weekStart).start,
+                        amountCents: cents, note: 'Given a job'));
+                  } else if (where == 'vault') {
+                    app.record([app.event(kind: 'goal_deposit', amountCents: cents, goalId: target)]);
+                  } else {
+                    app.record([app.event(kind: 'transfer', amountCents: cents, accountId: from, toAccountId: to)]);
+                  }
+                  Navigator.pop(context);
+                  context.toast('Done.');
+                },
+          child: const Text('Do it'),
+        ),
+        if (accts.isEmpty) const Text('Add an account in Settings first.'),
+      ]),
+    );
+  }
+}
+
 Future<void> addToBudget(BuildContext context, Category c) async {
   final app = context.appRead;
   final ctl = TextEditingController();
