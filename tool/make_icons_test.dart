@@ -5,6 +5,7 @@
 // solid square (iOS rounds the corners itself and doesn't allow see-through icons).
 import 'dart:collection';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -45,6 +46,60 @@ img.Image cutCorners(img.Image src) {
   return im;
 }
 
+/// Standard .ico: one PNG-compressed 32-bit image per size, with the header fields Windows Explorer
+/// expects (planes 1, 32 bits per pixel, 0 meaning 256 px). Explorer showed a blank icon otherwise.
+List<int> writeIco(List<img.Image> images) {
+  // Classic 32-bit bitmaps (BGRA, bottom-up, plus an all-zero AND mask): the desktop and taskbar showed a
+  // blank icon with PNG-compressed entries on this PC.
+  List<int> dib(img.Image i) {
+    final w = i.width, h = i.height;
+    final b = BytesBuilder();
+    void le(int v, int n) => b.add([for (var k = 0; k < n; k++) (v >> (8 * k)) & 0xff]);
+    le(40, 4); // BITMAPINFOHEADER size
+    le(w, 4);
+    le(h * 2, 4); // colour rows + mask rows
+    le(1, 2); // planes
+    le(32, 2); // bits per pixel
+    le(0, 4); // no compression
+    le(w * h * 4, 4);
+    le(0, 4);
+    le(0, 4);
+    le(0, 4);
+    le(0, 4);
+    for (var y = h - 1; y >= 0; y--) {
+      for (var x = 0; x < w; x++) {
+        final p = i.getPixel(x, y);
+        b.add([p.b.toInt(), p.g.toInt(), p.r.toInt(), p.a.toInt()]);
+      }
+    }
+    final maskRow = ((w + 31) ~/ 32) * 4;
+    b.add(List.filled(maskRow * h, 0));
+    return b.takeBytes();
+  }
+
+  final pngs = [for (final i in images) dib(i.convert(numChannels: 4))]; // classic bitmaps at every size (PNG entries showed blank)
+  final out = BytesBuilder();
+  void u16(int v) => out.add([v & 0xff, (v >> 8) & 0xff]);
+  void u32(int v) => out.add([v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, (v >> 24) & 0xff]);
+  u16(0); // reserved
+  u16(1); // type: icon
+  u16(images.length);
+  var offset = 6 + 16 * images.length;
+  for (var k = 0; k < images.length; k++) {
+    final w = images[k].width, h = images[k].height;
+    out.add([w >= 256 ? 0 : w, h >= 256 ? 0 : h, 0, 0]); // width, height, colors, reserved
+    u16(1); // planes
+    u16(32); // bits per pixel
+    u32(pngs[k].length);
+    u32(offset);
+    offset += pngs[k].length;
+  }
+  for (final p in pngs) {
+    out.add(p);
+  }
+  return out.takeBytes();
+}
+
 void main() {
   test('make icons', () {
     final src = img.decodeImage(File('assets/brand/stakd_app_icon_source.webp').readAsBytesSync())!;
@@ -68,10 +123,9 @@ void main() {
 
     // Windows: multi-size .ico with transparent corners, for the exe, taskbar and desktop shortcut.
     final sizes = [16, 24, 32, 48, 64, 128, 256];
-    final ico = img.IcoEncoder().encodeImages([
+    File('windows/runner/resources/app_icon.ico').writeAsBytesSync(writeIco([
       for (final s in sizes) img.copyResize(square, width: s, height: s, interpolation: img.Interpolation.average),
-    ]);
-    File('windows/runner/resources/app_icon.ico').writeAsBytesSync(ico);
+    ]));
     // ignore: avoid_print
     print('icons written');
   }, skip: Platform.environment['ICONS'] != '1');
