@@ -248,7 +248,7 @@ class _PayBillState extends State<PayBill> {
   late String? account = widget.o.bill.accountId ?? context.appRead.data.accounts.where((a) => !a.archived).firstOrNull?.id;
   late DateTime date = context.appRead.data.todayDate;
   late final SavingsGoal? billVault = context.appRead.data.goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
-  late bool fromSavings = _usable(context.appRead.data) > 0;
+  bool fromSavings = false; // never on by default: the envelope is only used when you choose it
   /// Envelope money this bill may use: what's set aside for it plus unassigned money (never other bills' money).
   int _usable(FinanceData d) => billVault == null ? 0 : (d.billEarmarks[widget.o.bill.id] ?? 0) + d.billEnvelopeUnassigned;
   bool outsideCash = false; // paid with money that was never in the app
@@ -285,7 +285,9 @@ class _PayBillState extends State<PayBill> {
               value: fromSavings,
               onChanged: (v) => setState(() => fromSavings = v!),
               title: const Text('Use my Bill savings'),
-              subtitle: Text('${m(saved)} in the Bill envelope for this bill. It comes out of the envelope, so your free money stays the same.'),
+              subtitle: Text(!o.due.isAfter(context.app.data.horizonEnd)
+                  ? 'Money for this bill is already held from your accounts. Only tick this to pay it from the envelope (${m(saved)}) instead - the held money then goes back into Safe to Spend.'
+                  : 'Pays it from the envelope (${m(saved)} there) instead of your spare money. Safe to Spend stays the same.'),
             ),
           const SizedBox(height: 16),
           FilledButton(
