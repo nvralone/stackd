@@ -138,7 +138,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Text('Add where your money lives and how much is there right now. Cash, Venmo, Cash App, checking, savings...', textAlign: TextAlign.center),
           const SizedBox(height: 12),
           for (final a in data.accounts)
-            ListTile(leading: Icon(accountIcon(a.kind), color: Color(a.color)), title: Text(a.name), trailing: Money(data.ledger.accountBalance(a.id))),
+            ListTile(leading: Icon(accountIcon(a.kind), color: Color(a.color)), title: Text(a.name), trailing: Money(data.accountSpendable(a.id))),
           OutlinedButton.icon(onPressed: () => sheet(context, const AccountEditor()), icon: const Icon(Icons.add), label: const Text('Add account')),
           if (data.accounts.isEmpty) const Padding(padding: EdgeInsets.only(top: 8), child: Text('You can also add accounts later.', textAlign: TextAlign.center)),
         ];

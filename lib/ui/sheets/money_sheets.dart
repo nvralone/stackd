@@ -28,11 +28,11 @@ class _CountMoneySheetState extends State<CountMoneySheet> {
     final d = app.data;
     final accts = d.accounts.where((a) => !a.archived).toList();
     for (final a in accts) {
-      ctl.putIfAbsent(a.id, () => TextEditingController(text: centsToInput(d.ledger.accountBalance(a.id))));
+      ctl.putIfAbsent(a.id, () => TextEditingController(text: centsToInput(d.accountSpendable(a.id))));
     }
     var newTotal = 0;
     for (final a in accts) {
-      newTotal += parseCents(ctl[a.id]!.text) ?? d.ledger.accountBalance(a.id);
+      newTotal += parseCents(ctl[a.id]!.text) ?? d.accountSpendable(a.id);
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -41,7 +41,7 @@ class _CountMoneySheetState extends State<CountMoneySheet> {
         const SizedBox(height: 4),
         Text('Only for fixing a balance that is wrong. To add a paycheck or extra money, use Quick Add > Income instead, or it counts twice. '
             'Type what is really in each place right now: cash in your wallet, envelopes, Cash App, bank. '
-            'Money already sitting in an envelope for a vault still counts here (vaults are just labels on it).', style: context.tt.bodySmall),
+            "Don't include your savings: vaults and the Bill envelope (${m(d.totalSaved)}) are kept separately and stay as they are.", style: context.tt.bodySmall),
         const SizedBox(height: 12),
         for (final a in accts)
           Padding(
@@ -55,14 +55,14 @@ class _CountMoneySheetState extends State<CountMoneySheet> {
                 child: TextField(
                   controller: ctl[a.id],
                   keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                  decoration: InputDecoration(prefixText: '\$ ', isDense: true, helperText: 'app: ${m(d.ledger.accountBalance(a.id))}'),
+                  decoration: InputDecoration(prefixText: '\$ ', isDense: true, helperText: 'app: ${m(d.accountSpendable(a.id))}'),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
             ]),
           ),
         const Divider(),
-        Row(children: [const Expanded(child: Text('Total money')), Money(newTotal)]),
+        Row(children: [const Expanded(child: Text('Money in your accounts')), Money(newTotal)]),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () {
@@ -70,7 +70,7 @@ class _CountMoneySheetState extends State<CountMoneySheet> {
             for (final a in accts) {
               final real = parseCents(ctl[a.id]!.text);
               if (real == null) continue;
-              final diff = real - d.ledger.accountBalance(a.id);
+              final diff = real - d.accountSpendable(a.id); // savings parked in the account are kept
               if (diff != 0) events.add(app.event(kind: 'adjustment', amountCents: diff, accountId: a.id, note: 'Counted my money'));
             }
             if (events.isNotEmpty) app.record(events);

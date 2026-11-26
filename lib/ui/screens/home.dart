@@ -176,8 +176,8 @@ class HomeScreen extends StatelessWidget {
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: grid, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 112),
               children: [
-                Stat('Total Money', d.totalMoney, icon: Icons.layers_rounded,
-                    hint: '${m(d.totalMoney - d.totalSaved)} not set aside', onTap: () => sheet(context, const CountMoneySheet())),
+                Stat('In your accounts', d.moneyInAccounts, icon: Icons.layers_rounded,
+                    hint: 'Total with savings ${m(d.totalMoney)}', onTap: () => sheet(context, const CountMoneySheet())),
                 Stat('Budgets', d.budgetedRemaining, icon: Icons.sports_esports_rounded, color: Accents.vacation,
                     hint: 'Left this week', onTap: () => Shell.go(context, 2)),
                 Stat('Bills Reserved', d.reservedForBills, icon: Icons.event_note_rounded, color: Accents.warn,
@@ -272,7 +272,8 @@ class HomeScreen extends StatelessWidget {
                   ListTile(
                     leading: Icon(accountIcon(a.kind), color: Color(a.color)),
                     title: Text(a.name),
-                    trailing: Money(d.ledger.accountBalance(a.id)),
+                    subtitle: d.savedIn(a.id) > 0 ? Text('+ ${m(d.savedIn(a.id))} saved (not counted here)') : null,
+                    trailing: Money(d.accountSpendable(a.id)),
                   ),
                 if (d.accounts.isEmpty) const ListTile(title: Text('No accounts yet. Add one in Settings.')),
               ]),

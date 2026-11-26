@@ -40,8 +40,8 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: Icon(accountIcon(a.kind), color: Color(a.color)),
                 title: Text(a.name + (a.archived ? ' (archived)' : '')),
-                subtitle: Text(a.kind),
-                trailing: Money(d.ledger.accountBalance(a.id)),
+                subtitle: Text(d.savedIn(a.id) > 0 ? '${a.kind} · + ${m(d.savedIn(a.id))} saved (not counted here)' : a.kind),
+                trailing: Money(d.accountSpendable(a.id)),
                 onTap: () => sheet(context, AccountEditor(existing: a)),
               ),
             if (d.accounts.isEmpty) const ListTile(title: Text('No accounts. Add cash, Venmo, Cash App, checking...')),
@@ -353,7 +353,7 @@ class _AccountEditorState extends State<AccountEditor> {
   Widget build(BuildContext context) {
     final app = context.app;
     final isNew = widget.existing == null;
-    final current = isNew ? 0 : app.data.ledger.accountBalance(a.id);
+    final current = isNew ? 0 : app.data.accountSpendable(a.id); // what's really in it (savings shown separately)
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Form(

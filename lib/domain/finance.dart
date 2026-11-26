@@ -108,6 +108,18 @@ class FinanceData {
   int get reservedForBills =>
       billing.obligationsUntil(bills, ledger, overrides, addDays(horizonEnd, 1), now: now, earmarks: billEarmarks);
 
+  // ---------------------------------------------------------------- accounts vs savings
+  /// Saved money (vaults + Bill envelope) is shown as parked in the main account (the first active one),
+  /// so every account shows only what's really in it to use, and savings stay their own total.
+  MoneyAccount? get savingsHome => accounts.where((a) => !a.archived).firstOrNull;
+  int savedIn(String accountId) => savingsHome?.id == accountId ? totalSaved : 0;
+
+  /// What's in an account to use: its balance minus the saved money parked in it.
+  int accountSpendable(String accountId) => ledger.accountBalance(accountId) - savedIn(accountId);
+
+  /// All money in your accounts that isn't saved.
+  int get moneyInAccounts => totalMoney - totalSaved;
+
   // ---------------------------------------------------------------- bill envelope
   SavingsGoal? get billEnvelope => goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;
   int get billEnvelopeBalance => billEnvelope == null ? 0 : ledger.goalBalance(billEnvelope!.id);
