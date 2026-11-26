@@ -115,14 +115,19 @@ List<BillNeed> billNeeds(FinanceData f, {int pool = 0, Map<String, int> extraHel
   }
   near.sort((a, b) => a.due.compareTo(b.due));
   later.sort((a, b) => a.due.compareTo(b.due));
-  // Money you already have covers bills before payday first, soonest due first.
+  // Envelope money not set aside for a bill counts toward bills before payday first (counted, not
+  // assigned - same as reservedForBills), then money you already have covers the rest. Soonest first.
+  var unassigned = (f.billEnvelopeUnassigned - extraHeld.values.fold<int>(0, (s, v) => s + v)).clamp(0, 1 << 40).toInt();
   var left = pool;
   final covered = [
     for (final n in near)
       () {
-        final use = n.recommended.clamp(0, left);
+        final env = n.recommended.clamp(0, unassigned);
+        unassigned -= env;
+        final need = n.recommended - env;
+        final use = need.clamp(0, left);
         left -= use;
-        return BillNeed(n.bill, n.due, n.amount, n.paid, n.inEnvelope, use, 1, n.recommended - use, true);
+        return BillNeed(n.bill, n.due, n.amount, n.paid, n.inEnvelope + env, use, 1, need - use, true);
       }(),
   ];
   return [...covered, ...later];
@@ -197,7 +202,7 @@ Proposal suggestPaycheck(FinanceData f, int amount, {bool useUnassigned = false}
   var needs = billNeeds(f, pool: pool);
   final assign = <String, int>{};
   if (useUnassigned) {
-    var u = f.billEnvelopeUnassigned;
+    var u = f.billEnvelopeUnassigned - f.unassignedCoveringSoonBills; // the rest already counts toward bills before payday
     for (final n in needs) {
       // before payday: only what money you have doesn't cover; later: up to the whole remaining amount
       final want = n.beforePayday ? n.recommended : n.stillNeeded;

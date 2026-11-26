@@ -34,7 +34,8 @@ void main() {
             bs = SavingsGoal(id: newId(), name: billSavingsName, goalCents: 20000, contributionFreq: 'none');
             app.save(bs);
           }
-          app.record([app.event(kind: 'goal_deposit', amountCents: l.cents, goalId: bs.id, groupId: g)]);
+          // like the split screen: envelope money from a split is set aside for that bill
+          app.record([app.event(kind: 'goal_deposit', amountCents: l.cents, goalId: bs.id, billId: l.targetId, groupId: g)]);
         }
       }
       expect(p.allocated, cents);
