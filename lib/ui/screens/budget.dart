@@ -168,10 +168,33 @@ class CategoryCard extends StatelessWidget {
             icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
             label: const Text('Add money'),
           ),
+          if (s.hasLimit && s.remaining > 0)
+            TextButton.icon(
+              onPressed: () => emptyForPeriod(context, s),
+              icon: const Icon(Icons.remove_circle_outline_rounded, size: 18),
+              label: Text('Empty for this ${c.period == 'monthly' ? 'month' : 'week'}'),
+            ),
         ]),
       ]),
     );
   }
+}
+
+/// Takes what's left in a budget for this period back into Safe to Spend (this period only; the limit
+/// stays and next period starts fresh). Shows up under "Changes to this budget" where it can be removed.
+Future<void> emptyForPeriod(BuildContext context, CategoryStatus s) async {
+  final c = s.category;
+  final period = c.period == 'monthly' ? 'month' : 'week';
+  if (!await confirm(context, 'Empty ${c.name} for this $period?',
+      'The ${m(s.remaining)} left goes back into Safe to Spend. Next $period ${c.name} starts at ${m(s.limit)} again.')) {
+    return;
+  }
+  if (!context.mounted) return;
+  final app = context.appRead;
+  app.save(BudgetAllocation(
+      id: newId(), categoryId: c.id, periodStart: periodOf(app.data.todayDate, c.period, app.prefs.weekStart).start,
+      amountCents: -s.remaining, note: 'Emptied for this $period'));
+  context.toast('${c.name} emptied for this $period. ${m(s.remaining)} is back in Safe to Spend.');
 }
 
 const _catDeleteBody = 'Past transactions stay in your history and balances, but show as Uncategorized.';
