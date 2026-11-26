@@ -103,18 +103,10 @@ class FinanceData {
   /// End of the safe-to-spend window (inclusive day): next payday, or 14 days out without a schedule.
   DateTime get horizonEnd => nextPayday ?? addDays(todayDate, 14);
 
-  /// Bills due before payday, minus Bill envelope money (it's counted in Saved, so it must not be held a
-  /// second time here): first what's set aside for those exact bills, then any envelope money that isn't
-  /// set aside for a bill. Only counted, never assigned. Without this, paying a bill "from Bill savings"
-  /// made Safe to Spend jump by the envelope amount.
-  int get reservedForBills => _soonOwed - unassignedCoveringSoonBills;
-
-  /// Bills due before payday after their own envelope money.
-  late final int _soonOwed =
+  /// Bills due before payday, minus Bill envelope money already set aside for those exact bills
+  /// (that money is counted in Saved, so it must not be held a second time here).
+  int get reservedForBills =>
       billing.obligationsUntil(bills, ledger, overrides, addDays(horizonEnd, 1), now: now, earmarks: billEarmarks);
-
-  /// Envelope money not set aside for a bill that is covering bills due before payday right now.
-  int get unassignedCoveringSoonBills => billEnvelopeUnassigned < _soonOwed ? billEnvelopeUnassigned : _soonOwed;
 
   // ---------------------------------------------------------------- bill envelope
   SavingsGoal? get billEnvelope => goals.where((g) => g.name == billSavingsName && !g.archived).firstOrNull;

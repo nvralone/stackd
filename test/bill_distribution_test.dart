@@ -192,26 +192,6 @@ void main() {
     await Future<void>.delayed(const Duration(seconds: 4));
   });
 
-  test('envelope money not set aside for a bill still covers bills before payday (no jump when paying)', () {
-    // The real case: $20 in the envelope for no particular bill, a $25.09 bill due before payday,
-    // paid from Cash App with "Use my Bill savings". Safe to Spend must not jump by $20.
-    final b = Bill(id: 'ca', name: 'Cash App Borrow', amountCents: 2509, frequency: 'weekly', firstDue: day(2026, 11, 25));
-    final before = fin(bills: [b], events: [ev('goal_deposit', 2000, goal: 'bs', on: day(2026, 11, 13))], at: DateTime(2026, 11, 24, 12));
-    expect(before.billEnvelopeUnassigned, 2000);
-    expect(before.reservedForBills, 509); // only the part the envelope doesn't cover
-    expect(before.billEarmarks, isEmpty); // counted, never assigned
-    final after = fin(bills: [b], events: [
-      ev('goal_deposit', 2000, goal: 'bs', on: day(2026, 11, 13)),
-      ev('bill_payment', 2509, acct: 'm', bill: 'ca', occ: 0, on: day(2026, 11, 24)),
-      ev('goal_withdraw', 2000, goal: 'bs', bill: 'ca', reason: 'planned', on: day(2026, 11, 24)),
-    ], at: DateTime(2026, 11, 24, 12));
-    expect(after.availableToSpend, before.availableToSpend);
-    // and the paycheck split agrees: the bill only needs the $5.09 the envelope doesn't cover
-    final n = billNeeds(before).firstWhere((n) => n.beforePayday);
-    expect(n.inEnvelope, 2000);
-    expect(n.recommended + n.fromMoneyYouHave, 509);
-  });
-
   test('paying a bill from its envelope money uses up its share', () {
     final b = insurance(due: day(2026, 11, 25));
     final f = fin(bills: [b], events: [
